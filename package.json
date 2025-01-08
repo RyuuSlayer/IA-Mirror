@@ -1,0 +1,55 @@
+{
+  "name": "internet-archive-mirror",
+  "version": "1.0.0",
+  "description": "A Next.js-based web interface for browsing and managing Internet Archive content",
+  "main": "simpleServer.js",
+  "dependencies": {
+    "@internetarchive/dweb-archivecontroller": "^0.2.16",
+    "debug": "^4.4.0",
+    "dotenv": "^16.4.7",
+    "fast-xml-parser": "^4.5.1",
+    "level": "^9.0.0",
+    "mime-types": "^2.1.35",
+    "next": "^15.1.4",
+    "prettier-bytes": "^1.0.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.0.3",
+    "css-loader": "^7.1.2",
+    "eslint": "^8.56.0",
+    "eslint-config-next": "^15.1.4",
+    "style-loader": "^4.0.0",
+    "typescript": "^5.7.2"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "install-service": "node windows-service.js install",
+    "uninstall-service": "node windows-service.js uninstall"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RyuuSlayer/IA-Mirror.git"
+  },
+  "keywords": [
+    "internet-archive",
+    "mirror",
+    "local-archive",
+    "content-mirror"
+  ],
+  "author": "RyuuSlayer",
+  "license": "AGPL-3.0",
+  "bugs": {
+    "url": "https://github.com/RyuuSlayer/IA-Mirror/issues"
+  },
+  "homepage": "https://github.com/RyuuSlayer/IA-Mirror#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
