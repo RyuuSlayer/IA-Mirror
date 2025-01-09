@@ -25,23 +25,28 @@ export async function GET(request: NextRequest) {
     })
 
     // Get local items to check which are downloaded
-    const localItems = await getLocalItems({ mediatype })
+    const { items: localItems } = await getLocalItems({ showAll: true }) // Get all local items regardless of type
     const localIdentifiers = new Set(localItems.map(item => item.identifier))
 
     // Mark downloaded items and filter if hideDownloaded is true
-    const items = searchResults.items
-      .map(item => ({
-        ...item,
-        downloaded: localIdentifiers.has(item.identifier)
-      }))
-      .filter(item => !hideDownloaded || !item.downloaded)
+    const items = hideDownloaded 
+      ? searchResults.items.filter(item => !localIdentifiers.has(item.identifier))
+      : searchResults.items.map(item => ({
+          ...item,
+          downloaded: localIdentifiers.has(item.identifier)
+        }))
+
+    // Adjust total count if we're hiding downloaded items
+    const total = hideDownloaded 
+      ? items.length  // Use filtered count when hiding downloaded items
+      : searchResults.total
 
     return NextResponse.json({
       items,
-      total: searchResults.total,
+      total,
       page,
       size,
-      pages: Math.ceil(searchResults.total / size)
+      pages: Math.ceil(total / size)
     })
 
   } catch (error) {

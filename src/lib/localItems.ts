@@ -41,13 +41,21 @@ interface GetLocalItemsParams {
   mediatype?: string
   sort?: string
   hideDownloaded?: boolean
+  search?: string
+  page?: number
+  pageSize?: number
+  showAll?: boolean
 }
 
 export async function getLocalItems({
   mediatype,
   sort = '-downloads',
-  hideDownloaded = false
-}: GetLocalItemsParams): Promise<ItemInfo[]> {
+  hideDownloaded = false,
+  search = '',
+  page = 1,
+  pageSize = 20,
+  showAll = false
+}: GetLocalItemsParams): Promise<{ items: ItemInfo[], total: number }> {
   const config = await getConfig()
   const localItems: ItemInfo[] = []
 
@@ -73,7 +81,7 @@ export async function getLocalItems({
         if (fs.existsSync(metadataPath)) {
           try {
             const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'))
-            localItems.push({
+            const itemData = {
               identifier: item,
               title: metadata.metadata?.title || item,
               description: metadata.metadata?.description,
@@ -83,7 +91,17 @@ export async function getLocalItems({
               downloads: metadata.metadata?.downloads,
               collection: metadata.metadata?.collection,
               downloadDate: fs.statSync(metadataPath).mtime.toISOString()
-            })
+            }
+
+            // Always add the item if there's no search query
+            // Otherwise, check if it matches the search terms
+            if (!search || 
+                itemData.title.toLowerCase().includes(search.toLowerCase()) ||
+                itemData.description?.toLowerCase().includes(search.toLowerCase()) ||
+                itemData.creator?.toLowerCase().includes(search.toLowerCase()) ||
+                itemData.mediatype?.toLowerCase().includes(search.toLowerCase())) {
+              localItems.push(itemData)
+            }
           } catch (error) {
             log('Error reading metadata for', item, ':', error)
           }
@@ -93,7 +111,7 @@ export async function getLocalItems({
   }
 
   // Sort items
-  return localItems.sort((a, b) => {
+  const sortedItems = localItems.sort((a, b) => {
     switch (sort) {
       case '-downloads':
         return (b.downloads || 0) - (a.downloads || 0)
@@ -111,4 +129,14 @@ export async function getLocalItems({
         return 0
     }
   })
+
+  // If showAll is true, return all items, otherwise paginate
+  const total = sortedItems.length
+  if (showAll) {
+    return { items: sortedItems, total }
+  }
+
+  const start = (page - 1) * pageSize
+  const end = start + pageSize
+  return { items: sortedItems.slice(start, end), total }
 }

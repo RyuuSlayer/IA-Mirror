@@ -5,10 +5,12 @@
   "main": "simpleServer.js",
   "dependencies": {
     "@internetarchive/dweb-archivecontroller": "^0.2.16",
+    "@types/lodash": "^4.17.14",
     "debug": "^4.4.0",
     "dotenv": "^16.4.7",
     "fast-xml-parser": "^4.5.1",
     "level": "^9.0.0",
+    "lodash": "^4.17.21",
     "mime-types": "^2.1.35",
     "next": "^15.1.4",
     "prettier-bytes": "^1.0.4",

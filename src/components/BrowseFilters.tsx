@@ -7,11 +7,11 @@ interface BrowseFiltersProps {
   query: string
   mediatype: string
   sort: string
-  hideDownloaded: boolean
+  hideDownloaded?: boolean
   onSearch: (query: string) => void
   onMediaTypeChange: (mediatype: string) => void
   onSortChange: (sort: string) => void
-  onHideDownloadedChange: (hide: boolean) => void
+  onHideDownloadedChange?: (hide: boolean) => void
 }
 
 export default function BrowseFilters({
@@ -46,18 +46,33 @@ export default function BrowseFilters({
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault()
+      // Always trigger search, even if empty
       onSearch(searchInput)
-      updateSearchParams({ q: searchInput })
+      if (searchInput) {
+        updateSearchParams({ q: searchInput })
+      } else {
+        // Remove the q parameter if search is empty
+        const params = new URLSearchParams(window.location.search)
+        params.delete('q')
+        router.push(`${pathname}?${params.toString()}`)
+      }
     },
-    [searchInput, onSearch, updateSearchParams]
+    [searchInput, onSearch, updateSearchParams, router, pathname]
   )
 
   const handleMediaTypeChange = useCallback(
     (value: string) => {
       onMediaTypeChange(value)
-      updateSearchParams({ mediatype: value })
+      if (value) {
+        updateSearchParams({ mediatype: value })
+      } else {
+        // Remove the mediatype parameter if "All Media Types" is selected
+        const params = new URLSearchParams(window.location.search)
+        params.delete('mediatype')
+        router.push(`${pathname}?${params.toString()}`)
+      }
     },
-    [onMediaTypeChange, updateSearchParams]
+    [onMediaTypeChange, updateSearchParams, router, pathname]
   )
 
   const handleSortChange = useCallback(
@@ -70,7 +85,9 @@ export default function BrowseFilters({
 
   const handleHideDownloadedChange = useCallback(
     (checked: boolean) => {
-      onHideDownloadedChange(checked)
+      if (onHideDownloadedChange) {
+        onHideDownloadedChange(checked)
+      }
       updateSearchParams({ hideDownloaded: checked.toString() })
     },
     [onHideDownloadedChange, updateSearchParams]
@@ -130,15 +147,17 @@ export default function BrowseFilters({
           <option value="-title">Title Z-A</option>
         </select>
 
-        <label className="hide-downloaded-label">
-          <input
-            type="checkbox"
-            checked={hideDownloaded}
-            onChange={(e) => handleHideDownloadedChange(e.target.checked)}
-            className="hide-downloaded-checkbox"
-          />
-          Hide Downloaded Items
-        </label>
+        {hideDownloaded !== undefined && onHideDownloadedChange && (
+          <label className="hide-downloaded-label">
+            <input
+              type="checkbox"
+              checked={hideDownloaded}
+              onChange={(e) => handleHideDownloadedChange(e.target.checked)}
+              className="hide-downloaded-checkbox"
+            />
+            Hide Downloaded Items
+          </label>
+        )}
       </div>
 
       {query && (
