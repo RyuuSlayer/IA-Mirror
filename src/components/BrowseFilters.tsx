@@ -7,10 +7,12 @@ interface BrowseFiltersProps {
   query: string
   mediatype: string
   sort: string
+  pageSize: number
   hideDownloaded?: boolean
   onSearch: (query: string) => void
   onMediaTypeChange: (mediatype: string) => void
   onSortChange: (sort: string) => void
+  onPageSizeChange: (pageSize: number) => void
   onHideDownloadedChange?: (hide: boolean) => void
 }
 
@@ -18,10 +20,12 @@ export default function BrowseFilters({
   query,
   mediatype,
   sort,
+  pageSize,
   hideDownloaded,
   onSearch,
   onMediaTypeChange,
   onSortChange,
+  onPageSizeChange,
   onHideDownloadedChange,
 }: BrowseFiltersProps) {
   const router = useRouter()
@@ -83,6 +87,14 @@ export default function BrowseFilters({
     [onSortChange, updateSearchParams]
   )
 
+  const handlePageSizeChange = useCallback(
+    (value: number) => {
+      onPageSizeChange(value)
+      updateSearchParams({ pageSize: value.toString() })
+    },
+    [onPageSizeChange, updateSearchParams]
+  )
+
   const handleHideDownloadedChange = useCallback(
     (checked: boolean) => {
       if (onHideDownloadedChange) {
@@ -100,27 +112,35 @@ export default function BrowseFilters({
   }, [onSearch, updateSearchParams])
 
   return (
-    <div className="browse-filters">
-      <div className="search-bar">
-        <form onSubmit={handleSubmit} className="search-form">
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search items..."
-            className="search-input"
-          />
-          <button type="submit" className="search-button">
+    <div className="mb-8">
+      <div className="mb-6">
+        <form onSubmit={handleSubmit} className="flex flex-wrap gap-3">
+          <div className="flex-1 min-w-[200px]">
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search items..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-md 
+                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <button 
+            type="submit" 
+            className="px-6 py-2 bg-[#428BCA] text-white rounded-md hover:bg-[#357EBD] 
+              transition-colors duration-200"
+          >
             Search
           </button>
         </form>
       </div>
 
-      <div className="filters">
+      <div className="flex flex-wrap gap-4">
         <select
           value={mediatype}
           onChange={(e) => handleMediaTypeChange(e.target.value)}
-          className="mediatype-select"
+          className="px-3 py-2 border border-gray-300 rounded-md bg-white
+            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
           <option value="">All Media Types</option>
           <option value="texts">Books</option>
@@ -137,7 +157,8 @@ export default function BrowseFilters({
         <select
           value={sort}
           onChange={(e) => handleSortChange(e.target.value)}
-          className="sort-select"
+          className="px-3 py-2 border border-gray-300 rounded-md bg-white
+            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
           <option value="-downloads">Most Downloads</option>
           <option value="downloads">Least Downloads</option>
@@ -147,13 +168,26 @@ export default function BrowseFilters({
           <option value="-title">Title Z-A</option>
         </select>
 
+        <select
+          value={pageSize}
+          onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+          className="px-3 py-2 border border-gray-300 rounded-md bg-white
+            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="10">10 per page</option>
+          <option value="20">20 per page</option>
+          <option value="50">50 per page</option>
+          <option value="100">100 per page</option>
+        </select>
+
         {hideDownloaded !== undefined && onHideDownloadedChange && (
-          <label className="hide-downloaded-label">
+          <label className="flex items-center gap-2 text-gray-700">
             <input
               type="checkbox"
               checked={hideDownloaded}
               onChange={(e) => handleHideDownloadedChange(e.target.checked)}
-              className="hide-downloaded-checkbox"
+              className="w-4 h-4 rounded border-gray-300 text-blue-500
+                focus:ring-2 focus:ring-blue-500"
             />
             Hide Downloaded Items
           </label>
@@ -161,11 +195,11 @@ export default function BrowseFilters({
       </div>
 
       {query && (
-        <div className="active-filters">
-          <span className="filter-label">Search: {query}</span>
+        <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
+          <span>Search: {query}</span>
           <button
             onClick={clearSearch}
-            className="clear-filter"
+            className="p-1 hover:text-gray-900"
             title="Clear search"
           >
             ×

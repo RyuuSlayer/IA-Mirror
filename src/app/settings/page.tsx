@@ -97,10 +97,12 @@ export default function SettingsPage() {
   }
 
   const runMaintenance = async (action: 'refresh-metadata' | 'verify-files' | 'redownload-mismatched' | 'redownload-single' | 'find-derivatives' | 'remove-derivatives' | 'remove-single-derivative', data?: { identifier: string, filename: string }) => {
-    if (action !== 'redownload-single' && action !== 'remove-single-derivative') {
+    // Only reset maintenance result for new scans, not for actions on existing issues
+    if (action === 'refresh-metadata' || action === 'verify-files' || action === 'find-derivatives') {
       setMaintenanceResult(null)
       setRemainingIssues([])
     }
+    
     setIsMaintenanceRunning(true)
     setMessage('')
     setError('')
@@ -116,42 +118,68 @@ export default function SettingsPage() {
 
       if (response.ok) {
         const result = await response.json()
-        if (action === 'redownload-single' && data?.identifier && data?.filename) {
-          // Remove the queued item from the remaining issues
-          setRemainingIssues(prev => 
-            prev.filter(issue => !(issue.item === data.identifier && issue.file === data.filename))
-          )
-          setMessage(`Queued ${data.filename} for redownload`)
-        } else if (action === 'remove-single-derivative' && data?.identifier && data?.filename) {
-          if (result.success) {
-            // Remove the deleted item from the remaining issues
-            setRemainingIssues(prev => 
-              prev.filter(issue => !(issue.item === data.identifier && issue.file === data.filename))
-            )
+        
+        switch (action) {
+          case 'verify-files':
+            setMaintenanceResult({
+              ...result,
+              type: 'verify-files'
+            })
+            if (result.issues) {
+              setRemainingIssues(result.issues)
+            }
+            break;
+
+          case 'redownload-single':
+            if (data?.identifier && data?.filename) {
+              // Remove the queued item from the remaining issues
+              setRemainingIssues(prev => 
+                prev.filter(issue => !(issue.item === data.identifier && issue.file === data.filename))
+              )
+              setMessage(`Queued ${data.filename} for redownload`)
+            }
+            break;
+            
+          case 'redownload-mismatched':
+            // Clear all issues since they're all queued
+            setMaintenanceResult(null)
+            setRemainingIssues([])
+            setMessage('All mismatched files have been queued for redownload')
+            break;
+            
+          case 'remove-single-derivative':
+            if (result.success && data?.identifier && data?.filename) {
+              setRemainingIssues(prev => 
+                prev.filter(issue => !(issue.item === data.identifier && issue.file === data.filename))
+              )
+              setMessage(result.message)
+            } else {
+              setError(result.message || 'Failed to remove file')
+            }
+            break;
+            
+          case 'remove-derivatives':
+            setMaintenanceResult(null)
+            setRemainingIssues([])
             setMessage(result.message)
-          } else {
-            setError(result.message || 'Failed to remove file')
-          }
-        } else if (action === 'redownload-mismatched') {
-          setMaintenanceResult(null)
-          setRemainingIssues([])
-          setMessage(result.message)
-        } else if (action === 'remove-derivatives') {
-          setMaintenanceResult(null)
-          setRemainingIssues([])
-          setMessage(result.message)
-          if (result.error) {
-            setError(result.error)
-          }
-        } else {
-          setMaintenanceResult(result)
-          if (result.issues) {
-            setRemainingIssues(result.issues)
-          }
+            if (result.error) {
+              setError(result.error)
+            }
+            break;
+            
+          default:
+            // For refresh-metadata and find-derivatives
+            setMaintenanceResult({
+              ...result,
+              type: action
+            })
+            if (result.issues) {
+              setRemainingIssues(result.issues)
+            }
         }
       } else {
-        const data = await response.json()
-        setError(data.error || 'Maintenance operation failed')
+        const errorData = await response.json()
+        setError(errorData.error || 'Maintenance operation failed')
       }
     } catch (error) {
       console.error('Error during maintenance:', error)
@@ -162,176 +190,208 @@ export default function SettingsPage() {
   }
 
   if (isLoading) {
-    return <div>Loading settings...</div>
+    return (
+      <div className="flex justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#428BCA] border-t-transparent"></div>
+      </div>
+    )
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Settings</h1>
-      
-      <form onSubmit={handleSubmit} className="settings-form">
-        <div className="form-group">
-          <label htmlFor="storagePath">Storage Directory</label>
-          <input
-            type="text"
-            id="storagePath"
-            value={settings.storagePath}
-            onChange={(e) => setSettings({ ...settings, storagePath: e.target.value })}
-            className="form-input"
-            placeholder="Enter storage directory path"
-          />
-          <p className="input-help">
-            Directory where downloaded items will be stored
-          </p>
-        </div>
+    <div className="min-h-screen bg-[#FAFAFA]">
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold text-[#2C2C2C] mb-8">Settings</h1>
 
-        <div className="form-group">
-          <label htmlFor="maxConcurrentDownloads">Max Concurrent Downloads</label>
-          <input
-            type="number"
-            id="maxConcurrentDownloads"
-            value={settings.maxConcurrentDownloads}
-            onChange={(e) => setSettings({ 
-              ...settings, 
-              maxConcurrentDownloads: Math.max(1, parseInt(e.target.value) || 1)
-            })}
-            min="1"
-            className="form-input"
-          />
-          <p className="input-help">
-            Maximum number of downloads that can run at the same time
-          </p>
-        </div>
+        <div className="space-y-6">
+          {/* Settings Form */}
+          <section className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-semibold mb-6">General Settings</h2>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid gap-6">
+                <div>
+                  <label htmlFor="storagePath" className="block text-sm font-medium text-gray-700 mb-1">
+                    Storage Path
+                  </label>
+                  <input
+                    type="text"
+                    id="storagePath"
+                    value={settings.storagePath}
+                    onChange={(e) => setSettings({ ...settings, storagePath: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="/path/to/storage"
+                  />
+                </div>
 
-        <div className="mb-4">
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.skipDerivativeFiles}
-              onChange={(e) => setSettings({ ...settings, skipDerivativeFiles: e.target.checked })}
-              className="mr-2"
-            />
-            Skip Derivative Files
-          </label>
-          <div className="text-sm text-gray-600">Only download original files</div>
-        </div>
+                <div>
+                  <label htmlFor="maxConcurrentDownloads" className="block text-sm font-medium text-gray-700 mb-1">
+                    Max Concurrent Downloads
+                  </label>
+                  <input
+                    type="number"
+                    id="maxConcurrentDownloads"
+                    value={settings.maxConcurrentDownloads}
+                    onChange={(e) => setSettings({ ...settings, maxConcurrentDownloads: parseInt(e.target.value) })}
+                    min="1"
+                    max="10"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
 
-        <div className="mb-4">
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.skipHashCheck}
-              onChange={(e) => setSettings({ ...settings, skipHashCheck: e.target.checked })}
-              className="mr-2"
-            />
-            Skip Hash Verification
-          </label>
-          <div className="text-sm text-gray-600">Only check if files exist, skip MD5/SHA1 verification</div>
-        </div>
+                <div className="space-y-4">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="skipDerivativeFiles"
+                      checked={settings.skipDerivativeFiles}
+                      onChange={(e) => setSettings({ ...settings, skipDerivativeFiles: e.target.checked })}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="skipDerivativeFiles" className="ml-2 block text-sm text-gray-700">
+                      Skip Derivative Files
+                    </label>
+                  </div>
 
-        <button
-          type="submit"
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          Save Settings
-        </button>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="skipHashCheck"
+                      checked={settings.skipHashCheck}
+                      onChange={(e) => setSettings({ ...settings, skipHashCheck: e.target.checked })}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="skipHashCheck" className="ml-2 block text-sm text-gray-700">
+                      Skip Hash Check
+                    </label>
+                  </div>
+                </div>
+              </div>
 
-        <div className="maintenance-section mt-8">
-          <h2 className="text-2xl font-bold mb-4">Maintenance</h2>
-          
-          <div className="maintenance-actions">
-            <button
-              type="button"
-              onClick={() => runMaintenance('refresh-metadata')}
-              disabled={isMaintenanceRunning}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-              {isMaintenanceRunning ? 'Running...' : 'Refresh All Metadata'}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => runMaintenance('verify-files')}
-              disabled={isMaintenanceRunning}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-              {isMaintenanceRunning ? 'Running...' : 'Verify Files'}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => runMaintenance('find-derivatives')}
-              disabled={isMaintenanceRunning}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-              {isMaintenanceRunning ? 'Running...' : 'Find Derivative Files'}
-            </button>
-          </div>
-
-          {remainingIssues.length > 0 && (
-            <div className="maintenance-results mt-4">
-              <h3 className="text-xl font-bold mb-2">
-                {maintenanceResult?.type === 'derivatives' ? 'Derivative Files Found:' : 'Issues Found:'}
-              </h3>
-              <div className="flex justify-between items-center mb-4">
-                <span>{remainingIssues.length} {maintenanceResult?.type === 'derivatives' ? 'derivative file(s)' : 'issue(s)'} found</span>
+              <div className="flex items-center justify-end gap-4">
+                {message && <span className="text-green-600 text-sm">{message}</span>}
+                {error && <span className="text-red-600 text-sm">{error}</span>}
                 <button
-                  type="button"
-                  onClick={() => runMaintenance(maintenanceResult?.type === 'derivatives' ? 'remove-derivatives' : 'redownload-mismatched')}
-                  disabled={isMaintenanceRunning}
-                  className={maintenanceResult?.type === 'derivatives' ? 'bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700' : 'bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700'}
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 >
-                  {isMaintenanceRunning ? 'Processing...' : maintenanceResult?.type === 'derivatives' ? 'Remove All Derivatives' : 'Queue All for Redownload'}
+                  Save Settings
                 </button>
               </div>
-              <ul className="issues-list">
-                {remainingIssues.map((issue, index) => (
-                  <li key={index} className="issue-item">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <strong>{issue.item}</strong>
-                        {issue.file && <span> - File: {issue.file}</span>}
-                        {issue.error && <span className="error-text"> - {issue.error}</span>}
-                        {issue.expected !== undefined && (
-                          <span className="size-mismatch">
-                            (Expected: {issue.expected}, Actual: {issue.actual})
-                          </span>
+            </form>
+          </section>
+
+          {/* Maintenance Section */}
+          <section className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-semibold mb-6">Maintenance</h2>
+            
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => runMaintenance('refresh-metadata')}
+                  disabled={isMaintenanceRunning}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50"
+                >
+                  Refresh Metadata
+                </button>
+                <button
+                  onClick={() => runMaintenance('verify-files')}
+                  disabled={isMaintenanceRunning}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50"
+                >
+                  Verify Files
+                </button>
+                <button
+                  onClick={() => runMaintenance('find-derivatives')}
+                  disabled={isMaintenanceRunning}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50"
+                >
+                  Find Derivatives
+                </button>
+              </div>
+
+              {isMaintenanceRunning && (
+                <div className="flex items-center gap-2 text-gray-600">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+                  Maintenance in progress...
+                </div>
+              )}
+
+              {maintenanceResult && (
+                <div className={`mt-4 p-4 rounded-md ${
+                  maintenanceResult.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+                }`}>
+                  <p className="font-medium">{maintenanceResult.message}</p>
+                  
+                  {maintenanceResult.issues && maintenanceResult.issues.length > 0 && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-medium">Issues Found: {remainingIssues.length}</h3>
+                        {maintenanceResult.type === 'verify-files' && (
+                          <button
+                            onClick={() => runMaintenance('redownload-mismatched')}
+                            disabled={isMaintenanceRunning}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+                          >
+                            Queue All for Redownload
+                          </button>
+                        )}
+                        {maintenanceResult.type === 'find-derivatives' && (
+                          <button
+                            onClick={() => runMaintenance('remove-derivatives')}
+                            disabled={isMaintenanceRunning}
+                            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50"
+                          >
+                            Delete All Derivatives
+                          </button>
                         )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => runMaintenance(
-                          maintenanceResult?.type === 'derivatives' ? 'remove-single-derivative' : 'redownload-single',
-                          {
-                            identifier: issue.item,
-                            filename: issue.file
-                          }
-                        )}
-                        disabled={isMaintenanceRunning}
-                        className={maintenanceResult?.type === 'derivatives' ? 'bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700' : 'bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700'}
-                      >
-                        {maintenanceResult?.type === 'derivatives' ? 'Remove' : 'Queue'}
-                      </button>
+                      <div className="space-y-2">
+                        {remainingIssues.map((issue, index) => (
+                          <div key={`${issue.item}_${issue.file}_${index}`} className="flex items-start gap-4 p-3 bg-white rounded border">
+                            <div className="flex-grow">
+                              <p className="font-medium">{issue.item}</p>
+                              {issue.file && <p className="text-sm text-gray-600">File: {issue.file}</p>}
+                              <p className="text-sm text-red-600">{issue.error}</p>
+                              {issue.expected !== undefined && (
+                                <p className="text-sm text-gray-600">
+                                  Expected: {issue.expected}, Actual: {issue.actual}
+                                </p>
+                              )}
+                            </div>
+                            {maintenanceResult.type === 'verify-files' && (
+                              <button
+                                onClick={() => runMaintenance('redownload-single', { 
+                                  identifier: issue.item,
+                                  filename: issue.file || ''
+                                })}
+                                disabled={isMaintenanceRunning}
+                                className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+                              >
+                                Queue for Redownload
+                              </button>
+                            )}
+                            {maintenanceResult.type === 'find-derivatives' && (
+                              <button
+                                onClick={() => runMaintenance('remove-single-derivative', { 
+                                  identifier: issue.item,
+                                  filename: issue.file || ''
+                                })}
+                                disabled={isMaintenanceRunning}
+                                className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50"
+                              >
+                                Delete Derivative
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </li>
-                ))}
-              </ul>
+                  )}
+                </div>
+              )}
             </div>
-          )}
+          </section>
         </div>
-
-        {message && (
-          <div className="success-message">
-            {message}
-          </div>
-        )}
-        
-        {error && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
-      </form>
+      </main>
     </div>
   )
 }

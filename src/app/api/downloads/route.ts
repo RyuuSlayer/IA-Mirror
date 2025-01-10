@@ -13,6 +13,7 @@ interface DownloadItem {
   startedAt?: string
   completedAt?: string
   pid?: number
+  mediatype?: string
 }
 
 function readDownloads(): DownloadItem[] {
@@ -44,7 +45,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { identifier, title } = await request.json()
+    const { identifier, title, mediatype } = await request.json()
     
     if (!identifier || !title) {
       return NextResponse.json(
@@ -68,11 +69,21 @@ export async function POST(request: NextRequest) {
       identifier,
       title,
       status: 'queued',
-      startedAt: new Date().toISOString()
+      startedAt: new Date().toISOString(),
+      mediatype
     }
 
     downloads.push(newDownload)
     writeDownloads(downloads)
+
+    // Get the base URL from the request
+    const protocol = request.headers.get('x-forwarded-proto') || 'http'
+    const host = request.headers.get('host') || 'localhost:3000'
+    const baseUrl = `${protocol}://${host}`
+
+    // Trigger queue processing with absolute URL
+    fetch(`${baseUrl}/api/downloads/process`, { method: 'GET' })
+      .catch(error => console.error('Error triggering queue processing:', error))
 
     return NextResponse.json(newDownload)
   } catch (error) {

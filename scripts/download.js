@@ -151,10 +151,12 @@ async function downloadItem() {
     const metadata = await fetchWithRedirects(metadataUrl)
     console.log('Got metadata:', JSON.stringify(metadata, null, 2))
 
-    // Use the media type passed from the API
-    const folderName = MEDIA_TYPE_FOLDERS[mediaType] || mediaType
+    // Use the media type from command line or metadata
+    const itemMediaType = mediaType !== 'other' ? mediaType : metadata.metadata?.mediatype
+    const folderName = MEDIA_TYPE_FOLDERS[itemMediaType] || 'other'
     const itemDir = path.join(cacheDir, folderName, identifier)
     
+    console.log(`Using media type: ${itemMediaType}`)
     console.log(`Using folder: ${folderName}`)
     console.log(`Item directory: ${itemDir}`)
     

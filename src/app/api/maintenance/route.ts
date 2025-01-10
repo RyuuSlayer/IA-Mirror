@@ -85,11 +85,8 @@ function findFileInDirectory(directory: string, originalFilename: string): strin
 async function queueDownload(identifier: string, filename: string, isDerivative: boolean = false) {
   try {
     console.log('Attempting to queue download:', { identifier, filename, isDerivative })
-    // Extract just the filename without the path for the title
     const displayName = path.basename(filename)
     
-    console.log('Making request to download API')
-    // Use full URL for server-side API call
     const response = await fetch('http://localhost:3000/api/download', {
       method: 'POST',
       headers: {
@@ -98,18 +95,19 @@ async function queueDownload(identifier: string, filename: string, isDerivative:
       body: JSON.stringify({
         identifier,
         title: `${identifier} - ${displayName}`,
-        file: filename,  // Keep the full path for downloading
-        isDerivative
+        file: filename,
+        isDerivative,
+        action: 'queue'
       }),
     })
 
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Download queue error:', errorText)
-      throw new Error(`Failed to queue download: ${errorText}`)
+      console.error('Failed to queue download:', await response.text())
+      return false
     }
 
-    console.log('Successfully queued download')
+    const result = await response.json()
+    console.log('Download queued successfully:', result)
     return true
   } catch (error) {
     console.error('Error queueing download:', error)
@@ -227,11 +225,9 @@ export async function POST(request: NextRequest) {
     }
     else if (action === 'verify-files') {
       // Get settings to check skipDerivativeFiles and skipHashCheck
-      const settingsResponse = await fetch('http://localhost:3000/api/settings')
-      if (!settingsResponse.ok) {
-        throw new Error('Failed to fetch settings')
-      }
-      const settings = await settingsResponse.json()
+      const config = await getConfig()
+      const skipHashCheck = config.skipHashCheck
+      const skipDerivativeFiles = config.skipDerivativeFiles
 
       const issues: any[] = []
       
@@ -254,7 +250,7 @@ export async function POST(request: NextRequest) {
 
             for (const file of files) {
               // Skip derivative files if the setting is enabled
-              if (settings.skipDerivativeFiles && isDerivativeFile(file)) {
+              if (skipDerivativeFiles && isDerivativeFile(file)) {
                 continue
               }
 
@@ -271,7 +267,8 @@ export async function POST(request: NextRequest) {
 
               // Verify file integrity (respecting skipHashCheck setting)
               const filePath = path.join(itemPath, existingFilename)
-              const verification = verifyFile(filePath, file, settings.skipHashCheck)
+              console.log('Verifying file:', { filePath, skipHashCheck })
+              const verification = verifyFile(filePath, file, skipHashCheck)
               if (!verification.valid) {
                 issues.push({
                   item,
@@ -288,12 +285,16 @@ export async function POST(request: NextRequest) {
       }
 
       results.issues = issues
-      results.type = 'verify'
+      results.type = 'verify-files'
       results.message = issues.length === 0 ? 
         'All files verified successfully' : 
         `Found ${issues.length} issue(s)`
     }
     else if (action === 'redownload-mismatched') {
+      // Get settings first
+      const config = await getConfig()
+      const settings = config.settings || {}
+
       // Queue all mismatched files for redownload
       const response = await fetch('http://localhost:3000/api/maintenance', {
         method: 'POST',
@@ -362,9 +363,11 @@ export async function POST(request: NextRequest) {
         if (success) {
           console.log('Successfully queued metadata file for redownload:', { identifier, filename })
           results.message = `Queued ${identifier}/${filename} for redownload`
+          results.success = true
         } else {
           console.error('Failed to queue metadata file for redownload:', { identifier, filename })
           results.error = `Failed to queue ${identifier}/${filename}`
+          results.success = false
         }
         return NextResponse.json(results)
       }
@@ -399,38 +402,23 @@ export async function POST(request: NextRequest) {
       })
       
       if (!file) {
-        console.error('File not found in metadata:', filename)
-        console.log('Available files:', metadata.files.map((f: MetadataFile) => f.name))
+        console.error('File not found in metadata')
         return NextResponse.json(
           { error: 'File not found in metadata' },
           { status: 404 }
         )
       }
 
-      console.log('Found file in metadata:', file)
-      
-      // Get settings
-      const config = await getConfig()
-      const settings = config.settings || {}
-
-      // Skip derivative files if the setting is enabled
-      if (settings.skipDerivativeFiles && isDerivativeFile(file)) {
-        console.log('Skipping derivative file:', filename)
-        return NextResponse.json({
-          message: `Skipped ${identifier}/${filename} (derivative file)`,
-          skipped: true
-        })
-      }
-
       const success = await queueDownload(identifier, filename, isDerivativeFile(file))
       if (success) {
-        console.log('Successfully queued file for redownload:', { identifier, filename })
+        console.log('Successfully queued file for redownload')
         results.message = `Queued ${identifier}/${filename} for redownload`
+        results.success = true
       } else {
-        console.error('Failed to queue file for redownload:', { identifier, filename })
+        console.error('Failed to queue file for redownload')
         results.error = `Failed to queue ${identifier}/${filename}`
+        results.success = false
       }
-      return NextResponse.json(results)
     }
     else if (action === 'find-derivatives') {
       const issues: any[] = []
@@ -457,7 +445,7 @@ export async function POST(request: NextRequest) {
                 const existingFilename = findFileInDirectory(itemPath, file.name)
                 if (existingFilename) {
                   issues.push({ 
-                    item, 
+                    item: path.join(folder, item), // Include media type folder in path
                     file: file.name,
                     size: fs.statSync(path.join(itemPath, existingFilename)).size,
                     original: file.original || 'Unknown'
@@ -478,7 +466,7 @@ export async function POST(request: NextRequest) {
         `Found ${issues.length} derivative file(s)`
     }
     else if (action === 'remove-derivatives') {
-      // Remove all derivative files
+      // Get all derivative files from verify-files action
       const response = await fetch('http://localhost:3000/api/maintenance', {
         method: 'POST',
         headers: {
@@ -488,37 +476,49 @@ export async function POST(request: NextRequest) {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to find derivative files')
+        throw new Error('Failed to find derivatives')
       }
 
-      const findResults = await response.json()
-      const issues = findResults.issues || []
-      const removedFiles = []
+      const verifyResults = await response.json()
+      const issues = verifyResults.issues || []
+      const deletedFiles = []
       const failedFiles = []
 
       for (const issue of issues) {
         if (issue.file) {
           try {
-            const itemPath = path.join(storagePath, MEDIA_TYPE_FOLDERS[issue.item.split('/')[0]] || '', issue.item)
-            const existingFilename = findFileInDirectory(itemPath, issue.file)
+            const itemPath = path.join(storagePath, issue.item)
             
-            if (existingFilename) {
-              const filePath = path.join(itemPath, existingFilename)
+            // Find the actual file on disk (handles case sensitivity and sanitized names)
+            const existingFilename = findFileInDirectory(itemPath, issue.file)
+            if (!existingFilename) {
+              failedFiles.push(`${issue.item}/${issue.file} (not found)`)
+              continue
+            }
+
+            const filePath = path.join(itemPath, existingFilename)
+            console.log('Attempting to delete:', filePath)
+            
+            if (fs.existsSync(filePath)) {
               fs.unlinkSync(filePath)
-              removedFiles.push(`${issue.item}/${issue.file}`)
+              deletedFiles.push(`${issue.item}/${issue.file}`)
+              console.log('Successfully deleted:', filePath)
+            } else {
+              failedFiles.push(`${issue.item}/${issue.file} (not found)`)
+              console.log('File not found:', filePath)
             }
           } catch (error) {
-            console.error(`Failed to remove ${issue.item}/${issue.file}:`, error)
-            failedFiles.push(`${issue.item}/${issue.file}`)
+            console.error(`Error deleting file ${issue.item}/${issue.file}:`, error)
+            failedFiles.push(`${issue.item}/${issue.file} (${error.message})`)
           }
         }
       }
 
-      results.message = `Removed ${removedFiles.length} derivative file(s)`
+      results.message = `Deleted ${deletedFiles.length} derivative files`
       if (failedFiles.length > 0) {
-        results.error = `Failed to remove ${failedFiles.length} file(s)`
+        results.error = `Failed to delete ${failedFiles.length} files`
       }
-      results.removedFiles = removedFiles
+      results.deletedFiles = deletedFiles
       results.failedFiles = failedFiles
     }
     else if (action === 'remove-single-derivative') {
@@ -529,85 +529,34 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      console.log('Removing single derivative:', { identifier, filename, storagePath })
-
-      // Get metadata to verify it's a derivative
-      const metadataResponse = await fetch(`http://localhost:3000/api/metadata/${identifier}`)
-      if (!metadataResponse.ok) {
-        console.error('Failed to fetch metadata:', await metadataResponse.text())
-        return NextResponse.json(
-          { error: 'Failed to fetch metadata' },
-          { status: 500 }
-        )
-      }
-
-      const metadata = await metadataResponse.json()
-      console.log('Got metadata:', metadata)
-      
-      const file = (metadata.files || []).find((f: MetadataFile) => f.name === filename)
-      console.log('Found file in metadata:', file)
-      
-      if (!file) {
-        return NextResponse.json(
-          { error: 'File not found in metadata' },
-          { status: 404 }
-        )
-      }
-
-      if (!isDerivativeFile(file)) {
-        return NextResponse.json(
-          { error: 'File is not a derivative' },
-          { status: 400 }
-        )
-      }
-
       try {
-        // For Windows paths, don't use path.join as it will mess up the drive letter
-        const mediaType = metadata.mediatype // Get mediatype from metadata response
-        const itemId = identifier // The full identifier is the item ID
-        const folderName = MEDIA_TYPE_FOLDERS[mediaType] || mediaType // e.g. "books" for "texts"
+        const itemPath = path.join(storagePath, identifier)
         
-        console.log('Raw identifier:', identifier)
-        console.log('Storage path:', storagePath)
-        console.log('Media type:', mediaType)
-        console.log('Folder name:', folderName)
-        console.log('Item ID:', itemId)
-        
-        // Ensure we have all required components
-        if (!mediaType || !itemId || !folderName) {
-          console.error('Missing path component:', { mediaType, itemId, folderName })
-          return NextResponse.json(
-            { error: 'Invalid identifier format' },
-            { status: 400 }
-          )
-        }
-        
-        // Construct Windows path with explicit backslashes
-        const itemPath = `${storagePath}\\${folderName}\\${itemId}`
-        
-        console.log('Final item path:', itemPath)
-        
+        // Find the actual file on disk (handles case sensitivity and sanitized names)
         const existingFilename = findFileInDirectory(itemPath, filename)
-        console.log('Existing filename:', existingFilename)
+        if (!existingFilename) {
+          results.error = `File not found: ${identifier}/${filename}`
+          results.success = false
+          return NextResponse.json(results)
+        }
+
+        const filePath = path.join(itemPath, existingFilename)
+        console.log('Attempting to delete:', filePath)
         
-        if (existingFilename) {
-          const filePath = path.join(itemPath, existingFilename)
-          console.log('Deleting file:', filePath)
+        if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath)
-          console.log('File deleted successfully')
-          results.message = `Removed derivative file ${filename}`
+          console.log('Successfully deleted:', filePath)
+          results.message = `Deleted ${identifier}/${filename}`
           results.success = true
         } else {
-          console.log('File not found for deletion')
-          results.message = `File ${filename} not found`
+          console.log('File not found:', filePath)
+          results.error = `File not found: ${identifier}/${filename}`
           results.success = false
         }
       } catch (error) {
-        console.error(`Failed to remove ${identifier}/${filename}:`, error)
-        return NextResponse.json(
-          { error: `Failed to remove file: ${error.message}` },
-          { status: 500 }
-        )
+        console.error('Error deleting derivative:', error)
+        results.error = `Failed to delete ${identifier}/${filename}: ${error.message}`
+        results.success = false
       }
     }
 

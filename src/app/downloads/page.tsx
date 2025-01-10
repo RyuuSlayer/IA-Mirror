@@ -78,11 +78,23 @@ export default function DownloadsPage() {
   }
 
   if (loading) {
-    return <div className="p-4">Loading downloads...</div>
+    return (
+      <div className="min-h-screen bg-[#FAFAFA] flex justify-center items-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#428BCA] border-t-transparent"></div>
+      </div>
+    )
   }
 
   if (downloads.length === 0) {
-    return <div className="p-4">No downloads in progress</div>
+    return (
+      <div className="min-h-screen bg-[#FAFAFA]">
+        <main className="max-w-7xl mx-auto px-4 py-8">
+          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+            <p className="text-gray-500">No downloads in progress</p>
+          </div>
+        </main>
+      </div>
+    )
   }
 
   // Only show clear button if there are any completed or failed downloads
@@ -102,53 +114,93 @@ export default function DownloadsPage() {
       return 1
     }
     // Then by start time
-    return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+    return (b.startedAt || '').localeCompare(a.startedAt || '')
   })
 
   return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Downloads</h1>
-        {hasFinishedDownloads && (
-          <button
-            onClick={handleClear}
-            className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded"
-          >
-            Clear Finished
-          </button>
-        )}
-      </div>
-      {sortedDownloads.map((download) => (
-        <div key={`${download.identifier}-${download.file}`} className="mb-6">
-          <h2 className="text-xl font-semibold">
-            {download.identifier} - {download.file?.split('/').pop()}
-          </h2>
-          <div className="mt-2">
-            <div>File: {download.file}</div>
-            <div>Status: {download.status} {download.progress !== undefined && `(${download.progress}%)`}</div>
-            {download.error && <div className="text-red-500">Error: {download.error}</div>}
-            <div>Destination: {download.destinationPath}</div>
-          </div>
-          {download.status === 'downloading' && (
-            <div className="mt-2">
-              <button 
-                onClick={() => handleCancel(download.identifier)}
-                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
-              >
-                Cancel
-              </button>
-              {download.progress !== undefined && (
-                <div className="mt-2 w-full bg-gray-200 rounded-full h-2.5">
-                  <div 
-                    className="bg-blue-600 h-2.5 rounded-full" 
-                    style={{ width: `${download.progress}%` }}
-                  ></div>
+    <div className="min-h-screen bg-[#FAFAFA]">
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-[#2C2C2C]">Downloads</h1>
+          {hasFinishedDownloads && (
+            <button
+              onClick={handleClear}
+              className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+            >
+              Clear Completed
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {sortedDownloads.map((download) => (
+            <div
+              key={`${download.identifier}_${download.file || ''}`}
+              className="bg-white rounded-lg shadow-sm p-6"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-grow min-w-0">
+                  <h3 className="text-lg font-medium text-gray-900 truncate mb-1">
+                    {download.title || download.identifier}
+                  </h3>
+                  
+                  <div className="text-sm text-gray-500 space-y-1">
+                    {download.file && (
+                      <p className="truncate">File: {download.file}</p>
+                    )}
+                    {download.destinationPath && (
+                      <p className="truncate">Path: {download.destinationPath}</p>
+                    )}
+                    {download.startedAt && (
+                      <p>Started: {new Date(download.startedAt).toLocaleString()}</p>
+                    )}
+                    {download.completedAt && (
+                      <p>Completed: {new Date(download.completedAt).toLocaleString()}</p>
+                    )}
+                    {download.error && (
+                      <p className="text-red-600">{download.error}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="ml-4 flex flex-col items-end gap-2">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    download.status === 'completed' ? 'bg-green-100 text-green-800' :
+                    download.status === 'failed' ? 'bg-red-100 text-red-800' :
+                    download.status === 'downloading' ? 'bg-blue-100 text-blue-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {download.status.charAt(0).toUpperCase() + download.status.slice(1)}
+                  </span>
+
+                  {(download.status === 'downloading' || download.status === 'queued') && (
+                    <button
+                      onClick={() => handleCancel(download.identifier)}
+                      className="text-sm text-red-600 hover:text-red-800"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {download.status === 'downloading' && download.progress !== undefined && (
+                <div className="mt-4">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${download.progress}%` }}
+                    />
+                  </div>
+                  <div className="mt-1 text-right text-sm text-gray-500">
+                    {download.progress.toFixed(1)}%
+                  </div>
                 </div>
               )}
             </div>
-          )}
+          ))}
         </div>
-      ))}
+      </main>
     </div>
   )
 }

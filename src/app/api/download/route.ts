@@ -328,45 +328,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true })
     }
 
-    // Check if already downloading
-    const existingDownload = downloads.find(d => d.identifier === identifier)
-    if (existingDownload) {
-      if (existingDownload.status === 'downloading') {
-        return NextResponse.json(
-          { error: 'Already downloading' },
-          { status: 400 }
-        )
+    if (action === 'queue') {
+      // Check if already downloading
+      const existingDownload = downloads.find(d => 
+        d.identifier === identifier && d.file === file
+      )
+      
+      if (existingDownload) {
+        if (existingDownload.status === 'downloading') {
+          return NextResponse.json(
+            { error: 'Already downloading' },
+            { status: 400 }
+          )
+        }
+
+        // Update existing download
+        existingDownload.status = 'queued'
+        existingDownload.error = undefined
+        existingDownload.progress = undefined
+        existingDownload.completedAt = undefined
+        existingDownload.startedAt = new Date().toISOString()
+        existingDownload.file = file
+        existingDownload.mediaType = mediaType
+        existingDownload.isDerivative = isDerivative
+        writeDownloads(downloads)
+      } else {
+        // Create new download
+        const newDownload: DownloadItem = {
+          identifier,
+          title,
+          status: 'queued',
+          startedAt: new Date().toISOString(),
+          file,
+          mediaType,
+          isDerivative
+        }
+        downloads.push(newDownload)
+        writeDownloads(downloads)
       }
 
-      // Update existing download
-      existingDownload.status = 'queued'
-      existingDownload.error = undefined
-      existingDownload.progress = undefined
-      existingDownload.completedAt = undefined
-      existingDownload.startedAt = new Date().toISOString()
-      existingDownload.file = file
-      existingDownload.mediaType = mediaType
-      writeDownloads(downloads)
-    } else {
-      // Create new download
-      const newDownload: DownloadItem = {
-        identifier,
-        title,
-        status: 'queued',
-        startedAt: new Date().toISOString(),
-        file,
-        isDerivative,
-        mediaType
-      }
-      downloads.push(newDownload)
-      writeDownloads(downloads)
+      // Try to start the download if possible
+      await startNextQueuedDownload()
+      return NextResponse.json({ success: true })
     }
 
-    // Start the download
-    const downloadItem = existingDownload || downloads[downloads.length - 1]
-    await startDownload({...downloadItem, mediaType})
-
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
   } catch (error) {
     console.error('Error in POST /api/download:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -7,12 +7,14 @@ interface Config {
   cacheDir: string
   maxConcurrentDownloads: number
   skipDerivativeFiles: boolean
+  skipHashCheck: boolean
 }
 
 interface Settings {
   storagePath: string
   maxConcurrentDownloads: number
   skipDerivativeFiles: boolean
+  skipHashCheck: boolean
 }
 
 function readSettings(): Settings {
@@ -23,7 +25,8 @@ function readSettings(): Settings {
       return {
         storagePath: settings.storagePath || '',
         maxConcurrentDownloads: settings.maxConcurrentDownloads || 3,
-        skipDerivativeFiles: settings.skipDerivativeFiles || false
+        skipDerivativeFiles: settings.skipDerivativeFiles || false,
+        skipHashCheck: settings.skipHashCheck || false
       }
     }
   } catch (error) {
@@ -32,7 +35,8 @@ function readSettings(): Settings {
   return { 
     storagePath: '',
     maxConcurrentDownloads: 3,
-    skipDerivativeFiles: false
+    skipDerivativeFiles: false,
+    skipHashCheck: false
   }
 }
 
@@ -52,7 +56,8 @@ export async function getConfig(): Promise<Config> {
       return {
         cacheDir: 'C:\\archiveorg',
         maxConcurrentDownloads: settings.maxConcurrentDownloads,
-        skipDerivativeFiles: settings.skipDerivativeFiles
+        skipDerivativeFiles: settings.skipDerivativeFiles,
+        skipHashCheck: settings.skipHashCheck
       }
     }
   }
@@ -60,6 +65,7 @@ export async function getConfig(): Promise<Config> {
   return {
     cacheDir,
     maxConcurrentDownloads: settings.maxConcurrentDownloads,
-    skipDerivativeFiles: settings.skipDerivativeFiles
+    skipDerivativeFiles: settings.skipDerivativeFiles,
+    skipHashCheck: settings.skipHashCheck
   }
 }

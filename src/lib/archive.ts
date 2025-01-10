@@ -46,16 +46,16 @@ export async function searchItems({
       searchQuery.push(processedQuery)
     }
     
-    // Add mediatype filter if specified
-    if (mediatype) {
-      searchQuery.push(`mediatype:${mediatype}`)
+    // Add mediatype filter if specified and not empty
+    if (mediatype && mediatype.trim()) {
+      searchQuery.push(`mediatype:${mediatype.trim()}`)
     }
-    
+
     // If no query and no mediatype, show all items
     if (searchQuery.length === 0) {
       searchQuery.push('*:*')
     }
-    
+
     iaUrl.searchParams.set('q', searchQuery.join(' AND '))
     iaUrl.searchParams.set('fl[]', 'identifier,title,description,mediatype,creator,date,downloads,collection')
     iaUrl.searchParams.set('sort[]', sort)

@@ -1,6 +1,4 @@
 - Get the ebookreader working.
 - Ability to ignore a browser item, so it acts as a hidden item.
-- Fix adding files to queue from verify.
 - Local Library view needs to use local images.
-- Switch to tailwind theming.
-- Default download process through "Browse Internet Archive" does not always honour derivative exclusion.
+- Add propper unit tests.

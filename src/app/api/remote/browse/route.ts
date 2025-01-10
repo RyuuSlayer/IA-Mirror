@@ -29,24 +29,26 @@ export async function GET(request: NextRequest) {
     const localIdentifiers = new Set(localItems.map(item => item.identifier))
 
     // Mark downloaded items and filter if hideDownloaded is true
-    const items = hideDownloaded 
-      ? searchResults.items.filter(item => !localIdentifiers.has(item.identifier))
-      : searchResults.items.map(item => ({
-          ...item,
-          downloaded: localIdentifiers.has(item.identifier)
-        }))
+    const items = searchResults.items.map(item => ({
+      ...item,
+      downloaded: localIdentifiers.has(item.identifier)
+    }))
 
-    // Adjust total count if we're hiding downloaded items
-    const total = hideDownloaded 
-      ? items.length  // Use filtered count when hiding downloaded items
-      : searchResults.total
+    // Filter downloaded items if hideDownloaded is true
+    const filteredItems = hideDownloaded 
+      ? items.filter(item => !item.downloaded)
+      : items
+
+    // Calculate pagination values
+    const total = searchResults.total // Keep the total from search results
+    const totalPages = Math.ceil(total / size)
 
     return NextResponse.json({
-      items,
+      items: filteredItems,
       total,
       page,
       size,
-      pages: Math.ceil(total / size)
+      pages: totalPages
     })
 
   } catch (error) {
