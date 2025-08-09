@@ -10,8 +10,11 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || searchParams.get('q') || ''
     const mediatype = searchParams.get('mediatype') || ''
     const sort = searchParams.get('sort') || '-downloads'
-    const page = parseInt(searchParams.get('page') || '1')
-    const pageSize = parseInt(searchParams.get('pageSize') || '20')
+    const pageParam = searchParams.get('page') || '1'
+  const pageSizeParam = searchParams.get('pageSize') || '20'
+  
+  const page = Math.max(1, parseInt(pageParam, 10) || 1)
+  const pageSize = Math.max(1, Math.min(100, parseInt(pageSizeParam, 10) || 20))
     const showAll = searchParams.get('showAll') === 'true'
 
     // Get items with search, sort, and pagination

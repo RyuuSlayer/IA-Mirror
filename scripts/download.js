@@ -147,7 +147,8 @@ async function downloadFile(url, destPath) {
         return
       }
 
-      totalBytes = parseInt(response.headers['content-length'] || '0')
+      const contentLength = response.headers['content-length'] || '0'
+      totalBytes = parseInt(contentLength, 10) || 0
 
       response.pipe(file)
 

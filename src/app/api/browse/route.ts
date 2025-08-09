@@ -7,6 +7,21 @@ import { getConfig } from '@/lib/config'
 import debug from 'debug'
 
 const log = debug('ia-mirror:api:browse')
+const ignoredItemsPath = path.join(process.cwd(), 'ignored-items.json')
+
+// Load ignored items from file
+function loadIgnoredItems(): Set<string> {
+  try {
+    if (fs.existsSync(ignoredItemsPath)) {
+      const data = fs.readFileSync(ignoredItemsPath, 'utf8')
+      const items = JSON.parse(data)
+      return new Set(items)
+    }
+  } catch (error) {
+    console.error('Error loading ignored items:', error)
+  }
+  return new Set()
+}
 
 function isDerivativeFile(file: any) {
   return file.source === 'derivative' || file.original
@@ -19,8 +34,12 @@ export async function GET(request: NextRequest) {
     const mediatype = searchParams.get('mediatype') || ''
     const sort = searchParams.get('sort') || '-downloads'
     const hideDownloaded = searchParams.get('hideDownloaded') === 'true'
-    const page = parseInt(searchParams.get('page') || '1')
-    const size = parseInt(searchParams.get('size') || '20')
+    const hideIgnored = searchParams.get('hideIgnored') === 'true'
+    const pageParam = searchParams.get('page') || '1'
+  const sizeParam = searchParams.get('size') || '20'
+  
+  const page = Math.max(1, parseInt(pageParam, 10) || 1)
+  const size = Math.max(1, Math.min(100, parseInt(sizeParam, 10) || 20))
 
     // Get config to check skipDerivativeFiles setting
     const config = await getConfig()
@@ -54,14 +73,22 @@ export async function GET(request: NextRequest) {
     // Get local items to check which are downloaded
     const localItems = await getLocalItems({ mediatype })
     const localIdentifiers = new Set(localItems.items.map(item => item.identifier))
+    
+    // Get ignored items
+    const ignoredIdentifiers = loadIgnoredItems()
 
-    // Mark downloaded items and filter if hideDownloaded is true
+    // Mark downloaded and ignored items, then filter
     const items = searchResults.items
       .map(item => ({
         ...item,
-        downloaded: localIdentifiers.has(item.identifier)
+        downloaded: localIdentifiers.has(item.identifier),
+        ignored: ignoredIdentifiers.has(item.identifier)
       }))
-      .filter(item => !hideDownloaded || !item.downloaded)
+      .filter(item => {
+        if (hideDownloaded && item.downloaded) return false
+        if (hideIgnored && item.ignored) return false
+        return true
+      })
 
     return NextResponse.json({
       items,

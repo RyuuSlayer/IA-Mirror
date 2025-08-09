@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import Image from 'next/image'
-import { formatDescription } from '@/lib/utils'
+import { formatDescriptionForHTML } from '@/lib/utils'
 import ItemThumbnail from '@/components/ItemThumbnail'
 
 interface ItemMetadata {
@@ -135,7 +135,7 @@ export default async function ItemPage(props: Props) {
                       <dd 
                         className="text-gray-900 prose prose-sm max-w-none"
                         dangerouslySetInnerHTML={{ 
-                          __html: formatDescription(metadata.description) 
+                          __html: formatDescriptionForHTML(metadata.description) 
                         }} 
                       />
                     </>
@@ -178,7 +178,9 @@ export default async function ItemPage(props: Props) {
                               {file.name}
                             </div>
                             <div className="text-sm text-gray-500 flex items-center gap-2">
-                              <span>{(file.size / (1024 * 1024)).toFixed(1)} MB</span>
+                              {file.size && (
+                                <span>{(file.size / (1024 * 1024)).toFixed(1)} MB</span>
+                              )}
                               {file.format && (
                                 <>
                                   <span>•</span>

@@ -9,11 +9,13 @@ interface BrowseFiltersProps {
   sort: string
   pageSize: number
   hideDownloaded?: boolean
+  hideIgnored?: boolean
   onSearch: (query: string) => void
   onMediaTypeChange: (mediatype: string) => void
   onSortChange: (sort: string) => void
   onPageSizeChange: (pageSize: number) => void
   onHideDownloadedChange?: (hide: boolean) => void
+  onHideIgnoredChange?: (hide: boolean) => void
 }
 
 export default function BrowseFilters({
@@ -22,11 +24,13 @@ export default function BrowseFilters({
   sort,
   pageSize,
   hideDownloaded,
+  hideIgnored,
   onSearch,
   onMediaTypeChange,
   onSortChange,
   onPageSizeChange,
   onHideDownloadedChange,
+  onHideIgnoredChange,
 }: BrowseFiltersProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -105,6 +109,16 @@ export default function BrowseFilters({
     [onHideDownloadedChange, updateSearchParams]
   )
 
+  const handleHideIgnoredChange = useCallback(
+    (checked: boolean) => {
+      if (onHideIgnoredChange) {
+        onHideIgnoredChange(checked)
+      }
+      updateSearchParams({ hideIgnored: checked.toString() })
+    },
+    [onHideIgnoredChange, updateSearchParams]
+  )
+
   const clearSearch = useCallback(() => {
     setSearchInput('')
     onSearch('')
@@ -170,7 +184,11 @@ export default function BrowseFilters({
 
         <select
           value={pageSize}
-          onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+          onChange={(e) => {
+                const value = Number(e.target.value)
+                const validValue = isNaN(value) ? 20 : Math.max(1, Math.min(100, value))
+                handlePageSizeChange(validValue)
+              }}
           className="px-3 py-2 border border-gray-300 rounded-md bg-white
             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
@@ -190,6 +208,19 @@ export default function BrowseFilters({
                 focus:ring-2 focus:ring-blue-500"
             />
             Hide Downloaded Items
+          </label>
+        )}
+
+        {hideIgnored !== undefined && onHideIgnoredChange && (
+          <label className="flex items-center gap-2 text-gray-700">
+            <input
+              type="checkbox"
+              checked={hideIgnored}
+              onChange={(e) => handleHideIgnoredChange(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-blue-500
+                focus:ring-2 focus:ring-blue-500"
+            />
+            Hide Ignored Items
           </label>
         )}
       </div>

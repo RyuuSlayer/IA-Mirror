@@ -9,6 +9,7 @@ interface BrowseResultsProps {
   initialMediaType?: string
   initialSort?: string
   initialHideDownloaded?: boolean
+  initialHideIgnored?: boolean
 }
 
 interface Item {
@@ -21,6 +22,7 @@ interface Item {
   downloads?: number
   collection?: string[]
   downloaded?: boolean
+  ignored?: boolean
   thumbnailUrl?: string
 }
 
@@ -50,6 +52,7 @@ export default function BrowseResults({
   initialMediaType = '',
   initialSort = '-downloads',
   initialHideDownloaded = false,
+  initialHideIgnored = false,
 }: BrowseResultsProps) {
   const [query, setQuery] = useState(initialQuery)
   const [mediatype, setMediatype] = useState(initialMediaType)
@@ -62,7 +65,9 @@ export default function BrowseResults({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [hideDownloaded, setHideDownloaded] = useState(initialHideDownloaded)
+  const [hideIgnored, setHideIgnored] = useState(initialHideIgnored)
   const [downloadingItems, setDownloadingItems] = useState<Set<string>>(new Set())
+  const [ignoringItems, setIgnoringItems] = useState<Set<string>>(new Set())
   const [viewMode, setViewMode] = useState<'grid' | 'row'>('grid')
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -86,6 +91,7 @@ export default function BrowseResults({
           page: page.toString(),
           size: pageSize.toString(),
           hideDownloaded: hideDownloaded.toString(),
+          hideIgnored: hideIgnored.toString(),
         })
 
         const response = await fetch(`/api/remote/browse?${params}`, {
@@ -122,7 +128,7 @@ export default function BrowseResults({
         abortControllerRef.current.abort()
       }
     }
-  }, [query, mediatype, sort, page, pageSize, hideDownloaded])
+  }, [query, mediatype, sort, page, pageSize, hideDownloaded, hideIgnored])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -140,7 +146,9 @@ export default function BrowseResults({
   }
 
   const handlePageSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setPageSize(Number(e.target.value))
+    const value = Number(e.target.value)
+      const validValue = isNaN(value) ? 20 : Math.max(1, Math.min(100, value))
+      setPageSize(validValue)
     setPage(1)
   }
 
@@ -171,6 +179,29 @@ export default function BrowseResults({
         throw new Error(data.error || 'Failed to start download')
       }
 
+      // Automatically ignore downloaded items
+      try {
+        await fetch('/api/ignored', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            identifier,
+            action: 'ignore'
+          })
+        })
+        
+        // Update the item in the results to show it's ignored
+        setResults(prev => prev.map(item => 
+          item.identifier === identifier 
+            ? { ...item, ignored: true }
+            : item
+        ))
+      } catch (ignoreError) {
+        console.error('Failed to auto-ignore downloaded item:', ignoreError)
+      }
+
       // Keep the downloading state for a short while to show feedback
       setTimeout(() => {
         setDownloadingItems(prev => {
@@ -182,6 +213,50 @@ export default function BrowseResults({
     } catch (error) {
       console.error('Download error:', error)
       setDownloadingItems(prev => {
+        const next = new Set(prev)
+        next.delete(identifier)
+        return next
+      })
+    }
+  }
+
+  const handleIgnoreItem = async (identifier: string, isIgnored: boolean) => {
+    try {
+      setIgnoringItems(prev => new Set(prev).add(identifier))
+      
+      const response = await fetch('/api/ignored', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          identifier,
+          action: isIgnored ? 'unignore' : 'ignore'
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to update ignore status')
+      }
+      
+      // Update the item in the results
+      setResults(prev => prev.map(item => 
+        item.identifier === identifier 
+          ? { ...item, ignored: !isIgnored }
+          : item
+      ))
+      
+      // Keep the ignoring state for a short while to show feedback
+      setTimeout(() => {
+        setIgnoringItems(prev => {
+          const next = new Set(prev)
+          next.delete(identifier)
+          return next
+        })
+      }, 1000)
+    } catch (error) {
+      console.error('Ignore error:', error)
+      setIgnoringItems(prev => {
         const next = new Set(prev)
         next.delete(identifier)
         return next
@@ -255,6 +330,16 @@ export default function BrowseResults({
               className="form-checkbox h-5 w-5 text-[#428BCA] rounded border-gray-300 focus:ring-[#428BCA]"
             />
             <span className="text-gray-700">Hide downloaded items</span>
+          </label>
+
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={hideIgnored}
+              onChange={(e) => setHideIgnored(e.target.checked)}
+              className="form-checkbox h-5 w-5 text-[#428BCA] rounded border-gray-300 focus:ring-[#428BCA]"
+            />
+            <span className="text-gray-700">Hide ignored items</span>
           </label>
         </div>
       </div>
@@ -336,23 +421,43 @@ export default function BrowseResults({
                   <p className="text-sm text-gray-500">
                     {item.downloads?.toLocaleString()} downloads
                   </p>
-                  {!item.downloaded ? (
+                  <div className="flex gap-2">
+                    {!item.downloaded ? (
+                      <button
+                        onClick={() => handleDownload(item.identifier, item.title, item.mediatype)}
+                        disabled={downloadingItems.has(item.identifier)}
+                        className={`px-3 py-1 text-white text-sm rounded transition-colors ${
+                          downloadingItems.has(item.identifier)
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : 'bg-[#428BCA] hover:bg-[#357EBD]'
+                        }`}
+                      >
+                        {downloadingItems.has(item.identifier) ? 'Adding...' : 'Download'}
+                      </button>
+                    ) : (
+                      <span className="px-3 py-1 bg-green-500 text-white text-sm rounded">
+                        Downloaded
+                      </span>
+                    )}
                     <button
-                      onClick={() => handleDownload(item.identifier, item.title, item.mediatype)}
-                      disabled={downloadingItems.has(item.identifier)}
-                      className={`px-3 py-1 text-white text-sm rounded transition-colors ${
-                        downloadingItems.has(item.identifier)
-                          ? 'bg-gray-400 cursor-not-allowed'
-                          : 'bg-[#428BCA] hover:bg-[#357EBD]'
+                      onClick={() => handleIgnoreItem(item.identifier, item.ignored || false)}
+                      disabled={ignoringItems.has(item.identifier)}
+                      className={`px-3 py-1 text-sm rounded transition-colors ${
+                        ignoringItems.has(item.identifier)
+                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                          : item.ignored
+                          ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                       }`}
                     >
-                      {downloadingItems.has(item.identifier) ? 'Adding...' : 'Download'}
+                      {ignoringItems.has(item.identifier) 
+                        ? 'Updating...' 
+                        : item.ignored 
+                        ? 'Unignore' 
+                        : 'Ignore'
+                      }
                     </button>
-                  ) : (
-                    <span className="px-3 py-1 bg-green-500 text-white text-sm rounded">
-                      Downloaded
-                    </span>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -396,7 +501,7 @@ export default function BrowseResults({
                       </p>
                     )}
                   </div>
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 flex gap-2">
                     <button
                       onClick={() => handleDownload(item.identifier, item.title, item.mediatype)}
                       disabled={downloadingItems.has(item.identifier) || item.downloaded}
@@ -413,6 +518,24 @@ export default function BrowseResults({
                         : downloadingItems.has(item.identifier)
                         ? 'Adding...'
                         : 'Download'}
+                    </button>
+                    <button
+                      onClick={() => handleIgnoreItem(item.identifier, item.ignored || false)}
+                      disabled={ignoringItems.has(item.identifier)}
+                      className={`px-3 py-1 text-sm rounded transition-colors ${
+                        ignoringItems.has(item.identifier)
+                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                          : item.ignored
+                          ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      {ignoringItems.has(item.identifier) 
+                        ? 'Updating...' 
+                        : item.ignored 
+                        ? 'Unignore' 
+                        : 'Ignore'
+                      }
                     </button>
                   </div>
                 </div>
@@ -449,7 +572,9 @@ export default function BrowseResults({
             <select
               value={pageSize}
               onChange={(e) => {
-                setPageSize(Number(e.target.value))
+                const value = Number(e.target.value)
+        const validValue = isNaN(value) ? 20 : Math.max(1, Math.min(100, value))
+        setPageSize(validValue)
                 setPage(1) // Reset to first page when changing page size
               }}
               className="ml-2 px-2 py-1 text-sm border rounded"

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
 interface ItemCardProps {
@@ -19,6 +19,8 @@ interface ItemCardProps {
 export default function ItemCard({ item }: ItemCardProps) {
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const blobUrlRef = useRef<string | null>(null)
+  const linkElementRef = useRef<HTMLAnchorElement | null>(null)
 
   const handleDownload = async () => {
     if (downloading) return
@@ -38,15 +40,24 @@ export default function ItemCard({ item }: ItemCardProps) {
       
       // Create a download link
       const url = window.URL.createObjectURL(blob)
+      blobUrlRef.current = url
+      
       const a = document.createElement('a')
+      linkElementRef.current = a
       a.href = url
-      a.download = `${item.identifier}.${blob.type.split('/')[1] || 'bin'}`
+      
+      // Safe access to blob.type with null check
+      const fileExtension = blob.type ? blob.type.split('/')[1] || 'bin' : 'bin'
+      a.download = `${item.identifier}.${fileExtension}`
+      
       document.body.appendChild(a)
       a.click()
       
-      // Cleanup
+      // Immediate cleanup
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
+      blobUrlRef.current = null
+      linkElementRef.current = null
     } catch (error) {
       console.error('Download error:', error)
       setError(error instanceof Error ? error.message : 'Download failed')
@@ -54,6 +65,23 @@ export default function ItemCard({ item }: ItemCardProps) {
       setDownloading(false)
     }
   }
+
+  // Cleanup effect for component unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup any remaining blob URLs
+      if (blobUrlRef.current) {
+        window.URL.revokeObjectURL(blobUrlRef.current)
+        blobUrlRef.current = null
+      }
+      
+      // Cleanup any remaining DOM elements
+      if (linkElementRef.current && document.body.contains(linkElementRef.current)) {
+        document.body.removeChild(linkElementRef.current)
+        linkElementRef.current = null
+      }
+    }
+  }, [])
 
   const formatSize = (size: string | number | undefined) => {
     if (typeof size === 'number') {

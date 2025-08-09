@@ -10,10 +10,10 @@
 - [x] Fix path traversal vulnerability in download.js - implement proper path sanitization
 
 ### Medium Priority
-- [] Fix memory leak in ItemCard.tsx: cleanup blob URLs and DOM elements on component unmount
-- [] Add null checks before accessing object properties (item.downloads, blob.type, etc.)
-- [] Implement proper input validation for parseInt() and Number() conversions
-- [] Add radix parameter to parseInt() calls
+- [x] Fix memory leak in ItemCard.tsx: cleanup blob URLs and DOM elements on component unmount
+- [x] Add null checks before accessing object properties (item.downloads, blob.type, etc.)
+- [x] Implement proper input validation for parseInt() and Number() conversions
+- [x] Add radix parameter to parseInt() calls
 
 ### Minor Issues
 - [] Add error boundaries for better component-level error handling

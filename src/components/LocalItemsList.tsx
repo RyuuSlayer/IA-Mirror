@@ -37,8 +37,11 @@ export default function LocalItemsList() {
   const currentSearch = searchParams.get('q') || ''
   const currentMediaType = searchParams.get('mediatype') || ''
   const currentSort = searchParams.get('sort') || '-downloads'
-  const currentPage = parseInt(searchParams.get('page') || '1')
-  const currentPageSize = parseInt(searchParams.get('pageSize') || '20')
+  const pageParam = searchParams.get('page') || '1'
+  const pageSizeParam = searchParams.get('pageSize') || '20'
+  
+  const currentPage = Math.max(1, parseInt(pageParam, 10) || 1)
+  const currentPageSize = Math.max(1, Math.min(100, parseInt(pageSizeParam, 10) || 20))
   const showAll = searchParams.get('showAll') === 'true'
 
   useEffect(() => {
@@ -304,7 +307,11 @@ export default function LocalItemsList() {
             </span>
             <select
               value={currentPageSize}
-              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              onChange={(e) => {
+                const value = Number(e.target.value)
+                const validValue = isNaN(value) ? 20 : Math.max(1, Math.min(100, value))
+                handlePageSizeChange(validValue)
+              }}
               className="ml-2 px-2 py-1 text-sm border rounded"
             >
               <option value="10">10 per page</option>

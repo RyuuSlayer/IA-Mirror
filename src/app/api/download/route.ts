@@ -116,7 +116,8 @@ async function startDownload(downloadItem: DownloadItem) {
     // Try to parse progress from output
     const progressMatch = output.match(/Progress: (\d+)%/)
     if (progressMatch) {
-      const progress = parseInt(progressMatch[1])
+      const progressValue = parseInt(progressMatch[1], 10)
+        const progress = isNaN(progressValue) ? 0 : Math.max(0, Math.min(100, progressValue))
       updateDownloadStatus(downloadItem.identifier, { progress })
     }
   })
