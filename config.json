@@ -1,5 +1,5 @@
 {
-  "storagePath": "S:\\Internet Archive",
+  "storagePath": "D:\\Internet Archive",
   "maxConcurrentDownloads": 3,
   "skipDerivativeFiles": true,
   "skipHashCheck": true

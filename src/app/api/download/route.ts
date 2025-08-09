@@ -2,11 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { spawn } from 'child_process'
 import path from 'path'
 import fs from 'fs'
-import { getConfig } from '@/lib/config'
-
-const DOWNLOADS_FILE = path.join(process.cwd(), 'downloads.json')
-const CONFIG_FILE = path.join(process.cwd(), 'config.json')
-
+import { getConfig, readSettings, Settings } from '@/lib/config'
+import { readDownloads, writeDownloads, DownloadItem } from '@/lib/downloads'
 // Map of media types to folder names
 const MEDIA_TYPE_FOLDERS = {
   'texts': 'books',
@@ -21,64 +18,7 @@ const MEDIA_TYPE_FOLDERS = {
   'account': 'accounts'
 }
 
-interface DownloadItem {
-  identifier: string
-  title: string
-  status: 'queued' | 'downloading' | 'completed' | 'failed'
-  progress?: number
-  error?: string
-  startedAt?: string
-  completedAt?: string
-  pid?: number
-  file?: string
-  destinationPath?: string
-  mediaType?: string
-  isDerivative?: boolean
-}
 
-interface Settings {
-  storagePath: string
-  maxConcurrentDownloads: number
-  skipDerivativeFiles: boolean
-  cacheDir: string
-}
-
-function readSettings(): Settings {
-  try {
-    if (fs.existsSync(CONFIG_FILE)) {
-      const data = fs.readFileSync(CONFIG_FILE, 'utf8')
-      return JSON.parse(data)
-    }
-  } catch (error) {
-    console.error('Error reading settings:', error)
-  }
-  return { storagePath: '', maxConcurrentDownloads: 3, skipDerivativeFiles: false, cacheDir: '' }
-}
-
-function readDownloads(): DownloadItem[] {
-  try {
-    if (fs.existsSync(DOWNLOADS_FILE)) {
-      const data = fs.readFileSync(DOWNLOADS_FILE, 'utf8')
-      // Handle empty file case
-      if (!data.trim()) {
-        return []
-      }
-      return JSON.parse(data)
-    }
-    return []
-  } catch (error) {
-    console.error('Error reading downloads:', error)
-    return []
-  }
-}
-
-function writeDownloads(downloads: DownloadItem[]) {
-  try {
-    fs.writeFileSync(DOWNLOADS_FILE, JSON.stringify(downloads, null, 2))
-  } catch (error) {
-    console.error('Error writing downloads:', error)
-  }
-}
 
 function updateDownloadStatus(identifier: string, updates: Partial<DownloadItem>) {
   const downloads = readDownloads()
@@ -142,7 +82,7 @@ async function startDownload(downloadItem: DownloadItem) {
     }
 
     // Find first non-derivative file
-    downloadItem.file = metadata.files.find(f => !isDerivativeFile(f.name))?.name
+    downloadItem.file = metadata.files.find((f: any) => !isDerivativeFile(f.name))?.name
     if (!downloadItem.file) {
       // If no non-derivative files found, use the first file
       downloadItem.file = metadata.files[0].name
@@ -154,8 +94,8 @@ async function startDownload(downloadItem: DownloadItem) {
     path.join(process.cwd(), 'scripts', 'download.js'),
     downloadItem.identifier,
     config.cacheDir,
-    downloadItem.mediaType || 'other',
-    downloadItem.file // Pass the specific file to download
+    downloadItem.mediatype || 'other',
+    downloadItem.file || '' // Pass the specific file to download
   ])
 
   // Store the process
@@ -215,7 +155,7 @@ async function startNextQueuedDownload() {
 
   const nextQueued = downloads.find(d => d.status === 'queued')
   if (nextQueued) {
-    await startDownload({...nextQueued, mediaType: nextQueued.mediaType || 'other'})
+    await startDownload({...nextQueued, mediatype: nextQueued.mediatype || 'other'})
   }
 }
 
@@ -252,8 +192,8 @@ export async function GET(request: NextRequest) {
     // Map downloads to include destination paths
     const downloadsWithPaths = downloads.map(download => {
       // Get media type from download or use default
-      const mediaType = download.mediaType || 'other'
-      const folderName = MEDIA_TYPE_FOLDERS[mediaType] || mediaType
+      const mediaType = download.mediatype || 'other'
+      const folderName = (MEDIA_TYPE_FOLDERS as any)[mediaType] || mediaType
 
       // Only construct destination path if we have required values
       let destinationPath = undefined
@@ -305,7 +245,7 @@ export async function POST(request: NextRequest) {
       
       const updatedDownloads = downloads.map(d => 
         d.identifier === identifier
-          ? { ...d, status: 'failed', error: 'Download cancelled by user', pid: undefined }
+          ? { ...d, status: 'failed' as const, error: 'Download cancelled by user', pid: undefined }
           : d
       )
       
@@ -324,7 +264,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Start download process
-      await startDownload({...download, mediaType})
+      await startDownload({...download, mediatype: mediaType})
       return NextResponse.json({ success: true })
     }
 
@@ -349,7 +289,7 @@ export async function POST(request: NextRequest) {
         existingDownload.completedAt = undefined
         existingDownload.startedAt = new Date().toISOString()
         existingDownload.file = file
-        existingDownload.mediaType = mediaType
+        existingDownload.mediatype = mediaType
         existingDownload.isDerivative = isDerivative
         writeDownloads(downloads)
       } else {
@@ -360,7 +300,7 @@ export async function POST(request: NextRequest) {
           status: 'queued',
           startedAt: new Date().toISOString(),
           file,
-          mediaType,
+          mediatype: mediaType,
           isDerivative
         }
         downloads.push(newDownload)

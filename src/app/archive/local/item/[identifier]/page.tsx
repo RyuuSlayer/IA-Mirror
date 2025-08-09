@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import fs from 'fs'
 import path from 'path'
+import ItemThumbnail from '@/components/ItemThumbnail'
 
 const cacheDir = process.env.CACHE_DIR || 'C:\\archiveorg'
 
@@ -24,9 +25,10 @@ async function getItemMetadata(identifier: string) {
 export default async function ItemPage({
   params,
 }: {
-  params: { identifier: string }
+  params: Promise<{ identifier: string }>
 }) {
-  const metadata = await getItemMetadata(params.identifier)
+  const resolvedParams = await params
+  const metadata = await getItemMetadata(resolvedParams.identifier)
   
   if (!metadata) {
     notFound()
@@ -37,17 +39,16 @@ export default async function ItemPage({
       <div className="item-details">
         <div className="item-header">
           <h1>{metadata.title}</h1>
-          {metadata.thumbnail && (
-            <div className="item-thumbnail-large">
-              <Image
-                src={metadata.thumbnail}
-                alt={metadata.title}
-                width={400}
-                height={400}
-                className="thumbnail"
-              />
-            </div>
-          )}
+          <div className="item-thumbnail-large">
+            <ItemThumbnail
+              identifier={resolvedParams.identifier}
+              thumbnailFile={metadata.thumbnail}
+              title={metadata.title}
+              width={400}
+              height={400}
+              className="thumbnail"
+            />
+          </div>
         </div>
 
         <div className="item-metadata">

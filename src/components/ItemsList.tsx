@@ -76,7 +76,11 @@ export default function ItemsList({ items = [] }: ItemsListProps) {
   const handleDownload = async (identifier: string) => {
     if (downloadingItems.has(identifier)) return
 
-    setDownloadingItems(prev => new Set([...prev, identifier]))
+    setDownloadingItems(prev => {
+      const newSet = new Set(prev)
+      newSet.add(identifier)
+      return newSet
+    })
     
     try {
       const item = itemsWithFiles.find(item => item.identifier === identifier)
@@ -149,7 +153,7 @@ export default function ItemsList({ items = [] }: ItemsListProps) {
               unoptimized
               onError={(e) => {
                 const target = e.target as HTMLImageElement
-                target.src = '/placeholder.png'
+                target.src = '/placeholder.svg'
               }}
             />
           </div>

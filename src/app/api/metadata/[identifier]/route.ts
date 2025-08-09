@@ -25,10 +25,10 @@ export const revalidate = 0
 
 export async function GET(
   request: NextRequest,
-  context: { params: { identifier: string } }
+  context: { params: Promise<{ identifier: string }> }
 ) {
   try {
-    const params = await Promise.resolve(context.params)
+    const params = await context.params
     const { identifier } = params
     
     if (!identifier) {

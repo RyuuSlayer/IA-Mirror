@@ -1,48 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
-
-const DOWNLOADS_FILE = path.join(process.cwd(), 'downloads.json')
-
-interface DownloadItem {
-  identifier: string
-  title: string
-  status: 'queued' | 'downloading' | 'completed' | 'failed'
-  progress?: number
-  error?: string
-  startedAt?: string
-  completedAt?: string
-  pid?: number
-}
-
-function readDownloads(): DownloadItem[] {
-  try {
-    if (fs.existsSync(DOWNLOADS_FILE)) {
-      const data = fs.readFileSync(DOWNLOADS_FILE, 'utf8')
-      return JSON.parse(data)
-    }
-  } catch (error) {
-    console.error('Error reading downloads:', error)
-  }
-  return []
-}
-
-function writeDownloads(downloads: DownloadItem[]): boolean {
-  try {
-    fs.writeFileSync(DOWNLOADS_FILE, JSON.stringify(downloads, null, 2))
-    return true
-  } catch (error) {
-    console.error('Error writing downloads:', error)
-    return false
-  }
-}
+import { readDownloads, writeDownloads, DownloadItem } from '@/lib/downloads'
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { identifier: string } }
+  { params }: { params: Promise<{ identifier: string }> }
 ) {
   try {
-    const { identifier } = params
+    const resolvedParams = await params
+    const { identifier } = resolvedParams
     const downloads = readDownloads()
     
     const downloadIndex = downloads.findIndex(d => d.identifier === identifier)
@@ -80,10 +45,11 @@ export async function DELETE(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { identifier: string } }
+  { params }: { params: Promise<{ identifier: string }> }
 ) {
   try {
-    const { identifier } = params
+    const resolvedParams = await params
+    const { identifier } = resolvedParams
     const updates = await request.json()
     
     const downloads = readDownloads()

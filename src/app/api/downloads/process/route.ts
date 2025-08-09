@@ -1,45 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
 import { spawn } from 'child_process'
+import path from 'path'
 import { getConfig } from '@/lib/config'
-
-const DOWNLOADS_FILE = path.join(process.cwd(), 'downloads.json')
-
-interface DownloadItem {
-  identifier: string
-  title: string
-  status: 'queued' | 'downloading' | 'completed' | 'failed'
-  progress?: number
-  error?: string
-  startedAt?: string
-  completedAt?: string
-  pid?: number
-  mediatype?: string
-  metadata?: any
-}
-
-function readDownloads(): DownloadItem[] {
-  try {
-    if (fs.existsSync(DOWNLOADS_FILE)) {
-      const data = fs.readFileSync(DOWNLOADS_FILE, 'utf8')
-      return JSON.parse(data)
-    }
-  } catch (error) {
-    console.error('Error reading downloads:', error)
-  }
-  return []
-}
-
-function writeDownloads(downloads: DownloadItem[]): boolean {
-  try {
-    fs.writeFileSync(DOWNLOADS_FILE, JSON.stringify(downloads, null, 2))
-    return true
-  } catch (error) {
-    console.error('Error writing downloads:', error)
-    return false
-  }
-}
+import { readDownloads, writeDownloads, DownloadItem } from '@/lib/downloads'
 
 function updateDownloadStatus(identifier: string, updates: Partial<DownloadItem>) {
   const downloads = readDownloads()
@@ -58,7 +21,7 @@ async function startDownload(item: DownloadItem) {
     path.join(process.cwd(), 'scripts', 'download.js'),
     item.identifier,
     config.cacheDir,
-    item.mediatype || item.metadata?.metadata?.mediatype || 'other' // Try to get mediatype from item or metadata
+    item.mediatype || 'other' // Use mediatype from item
   ])
 
   // Update download with process ID

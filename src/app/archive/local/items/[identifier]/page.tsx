@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import Image from 'next/image'
 import { formatDescription } from '@/lib/utils'
+import ItemThumbnail from '@/components/ItemThumbnail'
 
 interface ItemMetadata {
   identifier: string
@@ -21,7 +22,7 @@ interface ItemMetadata {
 }
 
 interface Props {
-  params: { identifier: string }
+  params: Promise<{ identifier: string }>
 }
 
 // Force dynamic rendering
@@ -92,13 +93,11 @@ export default async function ItemPage(props: Props) {
             <aside className="lg:w-1/3">
               <div className="bg-white rounded-lg shadow-sm p-4">
                 <div className="aspect-square relative overflow-hidden rounded-lg">
-                  <Image
-                    src={metadata.thumbnailFile ? `/api/metadata/${identifier}?download=${encodeURIComponent(metadata.thumbnailFile)}` : '/images/placeholder.svg'}
-                    alt={metadata.title || 'Item thumbnail'}
-                    fill
-                    className="object-cover"
-                    priority
-                    unoptimized={true}
+                  <ItemThumbnail
+                    identifier={identifier}
+                    thumbnailFile={metadata.thumbnailFile}
+                    title={metadata.title}
+                    fill={true}
                   />
                 </div>
               </div>

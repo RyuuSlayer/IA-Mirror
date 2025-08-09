@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
 import { getConfig } from '@/lib/config'
+import { readJsonFile } from '@/lib/utils'
 
 const MEDIA_TYPE_FOLDERS = {
   'texts': 'books',
@@ -27,7 +28,24 @@ interface MetadataFile {
 }
 
 function isDerivativeFile(file: MetadataFile): boolean {
-  return file.source === 'derivative' || (file.original !== undefined && file.original !== '')
+  // Check metadata-based derivative detection
+  if (file.source === 'derivative' || (file.original !== undefined && file.original !== '')) {
+    return true
+  }
+  
+  // Check filename-based derivative patterns
+  const derivativePatterns = [
+    /_thumb\./i,      // Thumbnails
+    /_itemimage\./i,  // Item images
+    /__ia_thumb\./i,  // IA thumbnails
+    /_files\./i,      // File listings
+    /_meta\./i,       // Metadata files
+    /\.gif$/i,        // GIF versions
+    /\b(thumb|small|medium|large)\d*\./i,  // Size variants
+    /_spectrogram\./i // Audio spectrograms
+  ]
+  
+  return derivativePatterns.some(pattern => pattern.test(file.name))
 }
 
 function sanitizeFilename(filename: string): string {
@@ -119,7 +137,7 @@ function getItemPath(identifier: string, storagePath: string): string {
   // Get the media type from the identifier (e.g., "texts/item123" -> "texts")
   const mediaType = identifier.split('/')[0]
   // Map it to the correct folder name
-  const folderName = MEDIA_TYPE_FOLDERS[mediaType] || mediaType
+  const folderName = (MEDIA_TYPE_FOLDERS as any)[mediaType] || mediaType
   // Construct the full path
   const fullPath = path.join(storagePath, folderName, identifier)
   console.log('Resolved path:', { mediaType, folderName, fullPath, identifier })
@@ -177,7 +195,7 @@ function verifyFile(filePath: string, file: MetadataFile, skipHashCheck: boolean
 
     return { valid: true }
   } catch (error) {
-    return { valid: false, error: `Error verifying file: ${error.message}` }
+    return { valid: false, error: `Error verifying file: ${error instanceof Error ? error.message : String(error)}` }
   }
 }
 
@@ -244,8 +262,13 @@ export async function POST(request: NextRequest) {
           const metadataPath = path.join(itemPath, 'metadata.json')
           if (!fs.existsSync(metadataPath)) continue
 
+          const metadata = readJsonFile(metadataPath)
+          if (!metadata) {
+            continue
+          }
+          
           try {
-            const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'))
+            
             const files = (metadata.files || []) as MetadataFile[]
 
             for (const file of files) {
@@ -293,7 +316,8 @@ export async function POST(request: NextRequest) {
     else if (action === 'redownload-mismatched') {
       // Get settings first
       const config = await getConfig()
-      const settings = config.settings || {}
+      const { readSettings } = await import('@/lib/config')
+      const settings = readSettings()
 
       // Queue all mismatched files for redownload
       const response = await fetch('http://localhost:3000/api/maintenance', {
@@ -436,8 +460,13 @@ export async function POST(request: NextRequest) {
           const metadataPath = path.join(itemPath, 'metadata.json')
           if (!fs.existsSync(metadataPath)) continue
 
+          const metadata = readJsonFile(metadataPath)
+          if (!metadata) {
+            continue
+          }
+          
           try {
-            const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'))
+            
             const files = (metadata.files || []) as MetadataFile[]
 
             for (const file of files) {
@@ -509,7 +538,8 @@ export async function POST(request: NextRequest) {
             }
           } catch (error) {
             console.error(`Error deleting file ${issue.item}/${issue.file}:`, error)
-            failedFiles.push(`${issue.item}/${issue.file} (${error.message})`)
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            failedFiles.push(`${issue.item}/${issue.file} (${errorMessage})`)
           }
         }
       }
@@ -555,7 +585,8 @@ export async function POST(request: NextRequest) {
         }
       } catch (error) {
         console.error('Error deleting derivative:', error)
-        results.error = `Failed to delete ${identifier}/${filename}: ${error.message}`
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        results.error = `Failed to delete ${identifier}/${filename}: ${errorMessage}`
         results.success = false
       }
     }
@@ -563,8 +594,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(results)
   } catch (error) {
     console.error('Maintenance error:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: error.message },
+      { error: errorMessage },
       { status: 500 }
     )
   }

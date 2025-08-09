@@ -3,6 +3,40 @@ const path = require('path')
 const https = require('https')
 const debug = require('debug')('ia-mirror:download')
 
+// Load config
+function loadConfig() {
+  try {
+    const configPath = path.join(process.cwd(), 'config.json')
+    if (fs.existsSync(configPath)) {
+      return JSON.parse(fs.readFileSync(configPath, 'utf8'))
+    }
+  } catch (error) {
+    console.warn('Could not load config, using defaults:', error.message)
+  }
+  return { skipDerivativeFiles: false }
+}
+
+// Check if a file is a derivative
+function isDerivativeFile(filename) {
+  const derivativePatterns = [
+    /_thumb\./i,      // Thumbnails
+    /_itemimage\./i,  // Item images
+    /__ia_thumb\./i,  // IA thumbnails
+    /_files\./i,      // File listings
+    /_meta\./i,       // Metadata files
+    /\.gif$/i,        // GIF versions
+    /\b(thumb|small|medium|large)\d*\./i,  // Size variants
+    /_spectrogram\./i // Audio spectrograms
+  ]
+  
+  return derivativePatterns.some(pattern => pattern.test(filename))
+}
+
+// Check if file is derivative based on metadata
+function isDerivativeFromMetadata(file) {
+  return file.source === 'derivative' || (file.original !== undefined && file.original !== '')
+}
+
 // Map of media types to folder names
 const MEDIA_TYPE_FOLDERS = {
   'texts': 'books',
@@ -23,6 +57,40 @@ const [,, identifier, cacheDir, mediaType = 'other', targetFile] = process.argv
 if (!identifier || !cacheDir) {
   console.error('Usage: node download.js <identifier> <cacheDir> [mediaType] [targetFile]')
   process.exit(1)
+}
+
+// Sanitize file paths to prevent directory traversal attacks
+function sanitizePath(filePath) {
+  if (!filePath || typeof filePath !== 'string') {
+    throw new Error('Invalid file path')
+  }
+  
+  // Remove any path traversal attempts
+  const sanitized = filePath
+    .replace(/\.\./g, '') // Remove .. sequences
+    .replace(/[\/\\]+/g, '/') // Normalize path separators
+    .replace(/^[\/\\]+/, '') // Remove leading slashes
+    .replace(/[\/\\]+$/, '') // Remove trailing slashes
+  
+  // Additional validation
+  if (sanitized.includes('..') || sanitized.startsWith('/') || sanitized.startsWith('\\')) {
+    throw new Error('Path traversal attempt detected')
+  }
+  
+  return sanitized
+}
+
+// Validate that a file path is safe to use
+function validateSafePath(basePath, filePath) {
+  const resolvedBase = path.resolve(basePath)
+  const resolvedPath = path.resolve(basePath, filePath)
+  
+  // Ensure the resolved path is within the base directory
+  if (!resolvedPath.startsWith(resolvedBase)) {
+    throw new Error('Path traversal attempt detected')
+  }
+  
+  return resolvedPath
 }
 
 console.log('Starting download script with:')
@@ -177,10 +245,11 @@ async function downloadItem() {
         throw new Error(`File ${targetFile} not found in metadata`)
       }
 
-      // Clean up the filename and create the path
-      const cleanFileName = targetFile.split('/').pop().replace(/[<>:"/\\|?*]/g, '_')
+      // Sanitize and validate the target file path
+      const sanitizedTargetFile = sanitizePath(targetFile)
+      const cleanFileName = sanitizedTargetFile.split('/').pop().replace(/[<>:"/\\|?*]/g, '_')
       const fileUrl = `https://archive.org/download/${identifier}/${encodeURIComponent(targetFile)}`
-      const filePath = path.join(itemDir, ...targetFile.split('/'))
+      const filePath = validateSafePath(itemDir, sanitizedTargetFile)
       
       // Create subdirectories if needed
       const fileDir = path.dirname(filePath)
@@ -204,17 +273,31 @@ async function downloadItem() {
     } else {
       // Download all files if no specific file is specified
       if (metadata.files) {
+        // Load config to check derivative file settings
+        const config = loadConfig()
+        const skipDerivativeFiles = config.skipDerivativeFiles || false
+        
         for (const file of metadata.files) {
-          // Skip files with special characters or backup files
-          if (file.name.includes('~') || file.name.includes('..')) {
-            console.log(`Skipping file with special characters: ${file.name}`)
+          let sanitizedFileName, cleanFileName, fileUrl, filePath
+          
+          try {
+            // Sanitize and validate the file path
+            sanitizedFileName = sanitizePath(file.name)
+            cleanFileName = sanitizedFileName.split('/').pop().replace(/[<>:"/\\|?*]/g, '_')
+            fileUrl = `https://archive.org/download/${identifier}/${encodeURIComponent(file.name)}`
+            filePath = validateSafePath(itemDir, sanitizedFileName)
+          } catch (pathError) {
+            console.log(`Skipping file with unsafe path: ${file.name} - ${pathError.message}`)
             continue
           }
-
-          // Clean up the filename and create the path
-          const cleanFileName = file.name.split('/').pop().replace(/[<>:"/\\|?*]/g, '_')
-          const fileUrl = `https://archive.org/download/${identifier}/${encodeURIComponent(file.name)}`
-          const filePath = path.join(itemDir, ...file.name.split('/'))
+          
+          // Skip derivative files if the setting is enabled
+          if (skipDerivativeFiles) {
+            if (isDerivativeFromMetadata(file) || isDerivativeFile(file.name)) {
+              console.log(`Skipping derivative file: ${cleanFileName}`)
+              continue
+            }
+          }
           
           // Create subdirectories if needed
           const fileDir = path.dirname(filePath)

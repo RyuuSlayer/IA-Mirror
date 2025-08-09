@@ -1,44 +1,10 @@
 import { NextResponse, NextRequest } from 'next/server'
-import fs from 'fs'
 import path from 'path'
+import fs from 'fs'
+import { createErrorResponse, createSuccessResponse } from '@/lib/utils'
+import { readSettings, writeSettings, Settings } from '@/lib/config'
 
 const CONFIG_FILE = path.join(process.cwd(), 'config.json')
-
-interface Settings {
-  storagePath: string
-  maxConcurrentDownloads: number
-  skipDerivativeFiles: boolean
-  skipHashCheck: boolean
-}
-
-const DEFAULT_SETTINGS: Settings = {
-  storagePath: '',
-  maxConcurrentDownloads: 3,
-  skipDerivativeFiles: false,
-  skipHashCheck: false
-}
-
-function readSettings(): Settings {
-  try {
-    if (fs.existsSync(CONFIG_FILE)) {
-      const data = fs.readFileSync(CONFIG_FILE, 'utf8')
-      return JSON.parse(data)
-    }
-  } catch (error) {
-    console.error('Error reading settings:', error)
-  }
-  return DEFAULT_SETTINGS
-}
-
-function writeSettings(settings: Settings): boolean {
-  try {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(settings, null, 2))
-    return true
-  } catch (error) {
-    console.error('Error writing settings:', error)
-    return false
-  }
-}
 
 export async function GET() {
   try {
@@ -63,20 +29,14 @@ export async function POST(request: NextRequest) {
     
     // Validate settings
     if (storagePath === undefined) {
-      return NextResponse.json(
-        { error: 'Storage path is required' },
-        { status: 400 }
-      )
+      return createErrorResponse('Storage path is required', 400)
     }
 
     if (maxConcurrentDownloads !== undefined && (
       typeof maxConcurrentDownloads !== 'number' ||
       maxConcurrentDownloads < 1
     )) {
-      return NextResponse.json(
-        { error: 'Max concurrent downloads must be a positive number' },
-        { status: 400 }
-      )
+      return createErrorResponse('Max concurrent downloads must be a positive number', 400)
     }
 
     // Create settings directory if it doesn't exist
@@ -96,18 +56,12 @@ export async function POST(request: NextRequest) {
     const success = writeSettings(settings)
 
     if (!success) {
-      return NextResponse.json(
-        { error: 'Failed to save settings' },
-        { status: 500 }
-      )
+      return createErrorResponse('Failed to save settings', 500)
     }
 
-    return NextResponse.json({ success: true })
+    return createSuccessResponse()
   } catch (error) {
     console.error('Error saving settings:', error)
-    return NextResponse.json(
-      { error: 'Failed to save settings' },
-      { status: 500 }
-    )
+    return createErrorResponse('Failed to save settings', 500)
   }
 }

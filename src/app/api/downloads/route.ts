@@ -1,42 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
-
-const DOWNLOADS_FILE = path.join(process.cwd(), 'downloads.json')
-
-interface DownloadItem {
-  identifier: string
-  title: string
-  status: 'queued' | 'downloading' | 'completed' | 'failed'
-  progress?: number
-  error?: string
-  startedAt?: string
-  completedAt?: string
-  pid?: number
-  mediatype?: string
-}
-
-function readDownloads(): DownloadItem[] {
-  try {
-    if (fs.existsSync(DOWNLOADS_FILE)) {
-      const data = fs.readFileSync(DOWNLOADS_FILE, 'utf8')
-      return JSON.parse(data)
-    }
-  } catch (error) {
-    console.error('Error reading downloads:', error)
-  }
-  return []
-}
-
-function writeDownloads(downloads: DownloadItem[]): boolean {
-  try {
-    fs.writeFileSync(DOWNLOADS_FILE, JSON.stringify(downloads, null, 2))
-    return true
-  } catch (error) {
-    console.error('Error writing downloads:', error)
-    return false
-  }
-}
+import { createErrorResponse } from '@/lib/utils'
+import { readDownloads, writeDownloads, DownloadItem } from '@/lib/downloads'
 
 export async function GET() {
   const downloads = readDownloads()
@@ -48,20 +12,14 @@ export async function POST(request: NextRequest) {
     const { identifier, title, mediatype } = await request.json()
     
     if (!identifier || !title) {
-      return NextResponse.json(
-        { error: 'Identifier and title are required' },
-        { status: 400 }
-      )
+      return createErrorResponse('Identifier and title are required', 400)
     }
 
     const downloads = readDownloads()
     
     // Check if download already exists
     if (downloads.some(d => d.identifier === identifier)) {
-      return NextResponse.json(
-        { error: 'Download already exists' },
-        { status: 400 }
-      )
+      return createErrorResponse('Download already exists', 400)
     }
 
     // Add new download to queue
@@ -88,9 +46,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(newDownload)
   } catch (error) {
     console.error('Error adding download:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return createErrorResponse('Internal server error', 500)
   }
 }

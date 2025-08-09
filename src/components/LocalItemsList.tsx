@@ -16,6 +16,7 @@ interface Item {
   date?: string
   collection?: string[]
   downloadDate: string
+  thumbnailFile?: string
 }
 
 interface ItemsResponse {
@@ -188,7 +189,7 @@ export default function LocalItemsList() {
             <div key={item.identifier} className="item-card border rounded-lg p-4 hover:shadow-lg transition-shadow">
               <div className="item-thumbnail mb-4">
                 <Image
-                  src={`https://archive.org/services/img/${item.identifier}`}
+                  src={item.thumbnailFile ? `/api/metadata/${item.identifier}?download=${encodeURIComponent(item.thumbnailFile)}` : `https://archive.org/services/img/${item.identifier}`}
                   alt={item.title}
                   width={160}
                   height={160}
@@ -196,7 +197,11 @@ export default function LocalItemsList() {
                   unoptimized
                   onError={(e) => {
                     const target = e.target as HTMLImageElement
-                    target.src = '/placeholder.png'
+                    if (target.src.includes('/api/metadata/')) {
+                       target.src = `https://archive.org/services/img/${item.identifier}`
+                     } else {
+                       target.src = '/placeholder.svg'
+                     }
                   }}
                 />
               </div>
@@ -231,7 +236,7 @@ export default function LocalItemsList() {
             <div key={item.identifier} className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 p-4 flex gap-4">
               <div className="flex-shrink-0 w-32 h-32">
                 <Image
-                  src={`https://archive.org/services/img/${item.identifier}`}
+                  src={item.thumbnailFile ? `/api/metadata/${item.identifier}?download=${encodeURIComponent(item.thumbnailFile)}` : `https://archive.org/services/img/${item.identifier}`}
                   alt={item.title}
                   width={128}
                   height={128}
@@ -239,7 +244,11 @@ export default function LocalItemsList() {
                   unoptimized
                   onError={(e) => {
                     const target = e.target as HTMLImageElement
-                    target.src = '/placeholder.png'
+                    if (target.src.includes('/api/metadata/')) {
+                       target.src = `https://archive.org/services/img/${item.identifier}`
+                     } else {
+                       target.src = '/placeholder.svg'
+                     }
                   }}
                 />
               </div>

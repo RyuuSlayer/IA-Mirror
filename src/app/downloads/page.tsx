@@ -62,7 +62,7 @@ export default function DownloadsPage() {
 
   const handleClear = async () => {
     try {
-      await fetch('/api/download', {
+      const response = await fetch('/api/download', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -71,7 +71,13 @@ export default function DownloadsPage() {
           action: 'clear'
         }),
       })
-      fetchDownloads() // Refresh the list
+      
+      if (!response.ok) {
+        throw new Error('Failed to clear downloads')
+      }
+      
+      // Wait for API completion before refreshing
+      await fetchDownloads()
     } catch (error) {
       console.error('Error clearing downloads:', error)
     }

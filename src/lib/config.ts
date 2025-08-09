@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { readJsonFile } from './utils'
 
 const CONFIG_FILE = path.join(process.cwd(), 'config.json')
 
@@ -10,33 +11,40 @@ interface Config {
   skipHashCheck: boolean
 }
 
-interface Settings {
+export interface Settings {
   storagePath: string
   maxConcurrentDownloads: number
   skipDerivativeFiles: boolean
   skipHashCheck: boolean
 }
 
-function readSettings(): Settings {
-  try {
-    if (fs.existsSync(CONFIG_FILE)) {
-      const data = fs.readFileSync(CONFIG_FILE, 'utf8')
-      const settings = JSON.parse(data)
-      return {
-        storagePath: settings.storagePath || '',
-        maxConcurrentDownloads: settings.maxConcurrentDownloads || 3,
-        skipDerivativeFiles: settings.skipDerivativeFiles || false,
-        skipHashCheck: settings.skipHashCheck || false
-      }
+export function readSettings(): Settings {
+  const settings = readJsonFile(CONFIG_FILE)
+  
+  if (settings) {
+    return {
+      storagePath: settings.storagePath || '',
+      maxConcurrentDownloads: settings.maxConcurrentDownloads || 3,
+      skipDerivativeFiles: settings.skipDerivativeFiles || false,
+      skipHashCheck: settings.skipHashCheck || false
     }
-  } catch (error) {
-    console.error('Error reading settings:', error)
   }
+  
   return { 
     storagePath: '',
     maxConcurrentDownloads: 3,
     skipDerivativeFiles: false,
     skipHashCheck: false
+  }
+}
+
+export function writeSettings(settings: Settings): boolean {
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(settings, null, 2))
+    return true
+  } catch (error) {
+    console.error('Error writing settings:', error)
+    return false
   }
 }
 

@@ -148,7 +148,11 @@ export default function BrowseResults({
     if (downloadingItems.has(identifier)) return
 
     try {
-      setDownloadingItems(prev => new Set([...prev, identifier]))
+      setDownloadingItems(prev => {
+        const newSet = new Set(prev)
+        newSet.add(identifier)
+        return newSet
+      })
 
       const response = await fetch('/api/downloads', {
         method: 'POST',
@@ -368,7 +372,7 @@ export default function BrowseResults({
                   unoptimized
                   onError={(e) => {
                     const target = e.target as HTMLImageElement
-                    target.src = '/placeholder.png'
+                    target.src = '/placeholder.svg'
                   }}
                 />
               </div>

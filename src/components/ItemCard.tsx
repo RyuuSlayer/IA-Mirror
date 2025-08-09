@@ -73,7 +73,7 @@ export default function ItemCard({ item }: ItemCardProps) {
               alt={item.title}
               className="thumbnail-img"
               onError={(e) => {
-                e.currentTarget.src = '/placeholder.png'
+                e.currentTarget.src = '/placeholder.svg'
               }}
             />
           )}

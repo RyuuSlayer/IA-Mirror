@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { getConfig } from './config'
+import { readJsonFile } from './utils'
 import debug from 'debug'
 
 const log = debug('ia-mirror:lib:localItems')
@@ -35,6 +36,7 @@ interface ItemInfo {
   downloads?: number
   collection?: string[]
   downloadDate: string
+  thumbnailFile?: string
 }
 
 interface GetLocalItemsParams {
@@ -79,8 +81,28 @@ export async function getLocalItems({
         const metadataPath = path.join(itemPath, 'metadata.json')
         
         if (fs.existsSync(metadataPath)) {
+          const metadata = readJsonFile(metadataPath)
+          
+          if (!metadata) {
+            log('Failed to parse metadata for', item)
+            continue
+          }
+          
           try {
-            const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'))
+            
+            // Find a suitable thumbnail file
+            let thumbnailFile = null
+            if (metadata.files) {
+              for (const file of metadata.files) {
+                if (file.name.toLowerCase().endsWith('.jpg') ||
+                  file.name.toLowerCase().endsWith('.jpeg') ||
+                  file.name.toLowerCase().endsWith('.png')) {
+                  thumbnailFile = file.name
+                  break
+                }
+              }
+            }
+
             const itemData = {
               identifier: item,
               title: metadata.metadata?.title || item,
@@ -90,7 +112,8 @@ export async function getLocalItems({
               date: metadata.metadata?.date,
               downloads: metadata.metadata?.downloads,
               collection: metadata.metadata?.collection,
-              downloadDate: fs.statSync(metadataPath).mtime.toISOString()
+              downloadDate: fs.statSync(metadataPath).mtime.toISOString(),
+              thumbnailFile
             }
 
             // Always add the item if there's no search query

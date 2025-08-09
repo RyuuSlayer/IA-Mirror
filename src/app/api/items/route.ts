@@ -1,10 +1,10 @@
-import { NextResponse, Request } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server'
 import debug from 'debug'
 import { getLocalItems } from '@/lib/localItems'
 
 const log = debug('ia-mirror:api:items')
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || searchParams.get('q') || ''

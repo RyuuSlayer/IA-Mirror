@@ -30,23 +30,15 @@ export async function GET(request: NextRequest) {
     if (!query) {
       const localItems = await getLocalItems({ mediatype, sort, hideDownloaded })
       
-      // Filter out derivative files if setting is enabled
-      const filteredItems = localItems.map(item => {
-        if (skipDerivativeFiles && item.files) {
-          item.files = item.files.filter(file => !isDerivativeFile(file))
-        }
-        return item
-      })
-
       const start = (page - 1) * size
-      const items = filteredItems.slice(start, start + size)
+      const items = localItems.items.slice(start, start + size)
 
       return NextResponse.json({
         items,
-        total: filteredItems.length,
+        total: localItems.total,
         page,
         size,
-        pages: Math.ceil(filteredItems.length / size)
+        pages: Math.ceil(localItems.total / size)
       })
     }
 
@@ -61,20 +53,14 @@ export async function GET(request: NextRequest) {
 
     // Get local items to check which are downloaded
     const localItems = await getLocalItems({ mediatype })
-    const localIdentifiers = new Set(localItems.map(item => item.identifier))
+    const localIdentifiers = new Set(localItems.items.map(item => item.identifier))
 
     // Mark downloaded items and filter if hideDownloaded is true
     const items = searchResults.items
-      .map(item => {
-        // Filter out derivative files if setting is enabled
-        if (skipDerivativeFiles && item.files) {
-          item.files = item.files.filter(file => !isDerivativeFile(file))
-        }
-        return {
-          ...item,
-          downloaded: localIdentifiers.has(item.identifier)
-        }
-      })
+      .map(item => ({
+        ...item,
+        downloaded: localIdentifiers.has(item.identifier)
+      }))
       .filter(item => !hideDownloaded || !item.downloaded)
 
     return NextResponse.json({
