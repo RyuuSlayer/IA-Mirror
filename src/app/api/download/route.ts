@@ -276,6 +276,83 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       return NextResponse.json({ success: true })
     }
 
+    if (action === 'start-next') {
+      // Try to start the next queued download
+      await startNextQueuedDownload()
+      return NextResponse.json({ success: true })
+    }
+
+    if (action === 'start-all') {
+      // Start all queued downloads up to the concurrent limit
+      const config = await getConfig()
+      const activeDownloads = getActiveDownloadsCount(downloads)
+      const queuedDownloads = downloads.filter(d => d.status === 'queued')
+      
+      const slotsAvailable = config.maxConcurrentDownloads - activeDownloads
+      const downloadsToStart = queuedDownloads.slice(0, slotsAvailable)
+      
+      for (const download of downloadsToStart) {
+        await startDownload({...download, mediatype: download.mediatype || 'other'})
+      }
+      
+      return NextResponse.json({ success: true, started: downloadsToStart.length })
+    }
+
+    if (action === 'pause-all') {
+      // Cancel all downloading items (pause functionality)
+      const downloadingItems = downloads.filter(d => d.status === 'downloading')
+      
+      for (const download of downloadingItems) {
+        const process = activeProcesses[download.identifier]
+        if (process) {
+          try {
+            process.kill()
+            delete activeProcesses[download.identifier]
+          } catch (error) {
+            console.error('Error killing process:', error)
+          }
+        }
+      }
+      
+      const updatedDownloads = downloads.map(d => 
+        d.status === 'downloading'
+          ? { ...d, status: 'queued' as const, pid: undefined, progress: undefined }
+          : d
+      )
+      
+      writeDownloads(updatedDownloads)
+      return NextResponse.json({ success: true, paused: downloadingItems.length })
+    }
+
+    if (action === 'cancel-all') {
+      // Cancel all active downloads (queued and downloading)
+      const activeItems = downloads.filter(d => d.status === 'downloading' || d.status === 'queued')
+      
+      // Kill all active processes
+      for (const download of activeItems) {
+        if (download.status === 'downloading') {
+          const process = activeProcesses[download.identifier]
+          if (process) {
+            try {
+              process.kill()
+              delete activeProcesses[download.identifier]
+            } catch (error) {
+              console.error('Error killing process:', error)
+            }
+          }
+        }
+      }
+      
+      const updatedDownloads = downloads.map(d => 
+        (d.status === 'downloading' || d.status === 'queued')
+          ? { ...d, status: 'failed' as const, error: 'Download cancelled by user', pid: undefined }
+          : d
+      )
+      
+      writeDownloads(updatedDownloads)
+      return NextResponse.json({ success: true, cancelled: activeItems.length })
+    }
+
     if (action === 'queue') {
       // Check if already downloading
       const existingDownload = downloads.find(d => 

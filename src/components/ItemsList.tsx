@@ -5,6 +5,16 @@ import Link from 'next/link'
 import Image from 'next/image'
 import type { SearchResult } from '@/types/api'
 
+// CSRF token utility
+const fetchCSRFToken = async (): Promise<string> => {
+  const response = await fetch('/api/csrf-token')
+  if (!response.ok) {
+    throw new Error('Failed to fetch CSRF token')
+  }
+  const data = await response.json()
+  return data.token
+}
+
 type Item = SearchResult & {
   downloaded?: boolean
   files?: Array<{
@@ -82,10 +92,14 @@ export default function ItemsList({ items = [] }: ItemsListProps) {
       // Find first non-derivative file
       const file = item.files?.find(f => !f.name.match(/(_thumb\.|_itemimage\.|__ia_thumb\.|_files\.|_meta\.|\.gif$|\b(thumb|small|medium|large)\d*\.|_spectrogram\.)/i))?.name
 
+      // Fetch CSRF token
+      const csrfToken = await fetchCSRFToken()
+
       const response = await fetch('/api/download', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
         },
         body: JSON.stringify({ 
           identifier,

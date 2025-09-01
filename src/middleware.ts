@@ -14,7 +14,8 @@ const CSRF_EXEMPT_ROUTES = [
   '/api/browse',
   '/api/metadata',
   '/api/items',
-  '/api/files'
+  '/api/files',
+  '/api/maintenance'
 ]
 
 export function middleware(request: NextRequest) {

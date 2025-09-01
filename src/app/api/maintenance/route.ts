@@ -4,6 +4,8 @@ import path from 'path'
 import crypto from 'crypto'
 import { getConfig, getBaseUrl } from '@/lib/config'
 import { readJsonFile } from '@/lib/utils'
+import { retryFetch, RETRY_CONFIGS } from '@/lib/retry'
+import { queueDownloadDirect } from '@/lib/downloads'
 import type { MaintenanceRequest, MaintenanceResult, MaintenanceIssue, MetadataFile, ApiResponse } from '@/types/api'
 
 const MEDIA_TYPE_FOLDERS = {
@@ -18,8 +20,6 @@ const MEDIA_TYPE_FOLDERS = {
   'collection': 'collections',
   'account': 'accounts'
 }
-
-
 
 function isDerivativeFile(file: MetadataFile): boolean {
   // Check metadata-based derivative detection
@@ -99,29 +99,24 @@ async function queueDownload(identifier: string, filename: string, isDerivative:
     console.log('Attempting to queue download:', { identifier, filename, isDerivative })
     const displayName = path.basename(filename)
     
-    const baseUrl = getBaseUrl()
-    const response = await fetch(`${baseUrl}/api/download`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        identifier,
-        title: `${identifier} - ${displayName}`,
-        file: filename,
-        isDerivative,
-        action: 'queue'
-      }),
-    })
-
-    if (!response.ok) {
-      console.error('Failed to queue download:', await response.text())
+    // Get media type from identifier
+    const mediaType = identifier.split('/')[0]
+    
+    const success = await queueDownloadDirect(
+      identifier,
+      `${identifier} - ${displayName}`,
+      filename,
+      mediaType,
+      isDerivative
+    )
+    
+    if (success) {
+      console.log('Download queued successfully')
+      return true
+    } else {
+      console.error('Failed to queue download')
       return false
     }
-
-    const result = await response.json()
-    console.log('Download queued successfully:', result)
-    return true
   } catch (error) {
     console.error('Error queueing download:', error)
     return false
@@ -142,10 +137,7 @@ function getItemPath(identifier: string, storagePath: string): string {
 async function getStoragePath(): Promise<string> {
   try {
     const baseUrl = getBaseUrl()
-    const response = await fetch(`${baseUrl}/api/settings`)
-    if (!response.ok) {
-      throw new Error('Failed to fetch settings')
-    }
+    const response = await retryFetch(`${baseUrl}/api/settings`, {}, RETRY_CONFIGS.METADATA)
     const settings = await response.json()
     return settings.storagePath
   } catch (error) {
@@ -230,13 +222,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
 
           try {
             const baseUrl = getBaseUrl()
-            const response = await fetch(`${baseUrl}/api/metadata/${item}`, {
+            const response = await retryFetch(`${baseUrl}/api/metadata/${item}`, {
               method: 'GET',
               headers: { 'force-refresh': 'true' }
-            })
-            if (!response.ok) {
-              console.error(`Failed to refresh metadata for ${item}:`, await response.text())
-            }
+            }, RETRY_CONFIGS.METADATA)
+            console.log(`Successfully refreshed metadata for ${item}`)
           } catch (error) {
             console.error(`Error refreshing metadata for ${item}:`, error)
           }
@@ -329,17 +319,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
 
       // Queue all mismatched files for redownload
       const baseUrl = getBaseUrl()
-      const response = await fetch(`${baseUrl}/api/maintenance`, {
+      const response = await retryFetch(`${baseUrl}/api/maintenance`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ action: 'verify-files' }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to verify files')
-      }
+      }, RETRY_CONFIGS.CRITICAL)
 
       const verifyResults = await response.json()
       const issues = verifyResults.issues || []
@@ -409,14 +395,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
       // For non-metadata files, proceed with normal metadata check
       const baseUrl = getBaseUrl()
       console.log('Fetching metadata from:', `${baseUrl}/api/metadata/${identifier}`)
-      const metadataResponse = await fetch(`${baseUrl}/api/metadata/${identifier}`)
-      if (!metadataResponse.ok) {
-        console.error('Failed to fetch metadata:', await metadataResponse.text())
-        return NextResponse.json(
-          { error: 'Failed to fetch metadata' },
-          { status: 500 }
-        )
-      }
+      const metadataResponse = await retryFetch(`${baseUrl}/api/metadata/${identifier}`, {}, RETRY_CONFIGS.METADATA)
 
       const metadata = await metadataResponse.json()
       console.log('Received metadata:', JSON.stringify(metadata, null, 2))
@@ -511,17 +490,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
     else if (action === 'remove-derivatives') {
       // Get all derivative files from verify-files action
       const baseUrl = getBaseUrl()
-      const response = await fetch(`${baseUrl}/api/maintenance`, {
+      const response = await retryFetch(`${baseUrl}/api/maintenance`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ action: 'find-derivatives' }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to find derivatives')
-      }
+      }, RETRY_CONFIGS.CRITICAL)
 
       const verifyResults = await response.json()
       const issues = verifyResults.issues || []

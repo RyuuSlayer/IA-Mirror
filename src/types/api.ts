@@ -245,3 +245,27 @@ export const SORT_OPTIONS = {
 } as const
 
 export type SortOption = typeof SORT_OPTIONS[keyof typeof SORT_OPTIONS]
+
+// Health Check Types
+export interface HealthCheckService {
+  name: string
+  status: 'healthy' | 'unhealthy' | 'degraded'
+  message?: string
+  responseTime?: number
+  lastChecked: string
+  details?: Record<string, any>
+}
+
+export interface HealthCheckResponse {
+  status: 'healthy' | 'unhealthy' | 'degraded'
+  timestamp: string
+  uptime: number
+  version?: string
+  services: HealthCheckService[]
+  summary: {
+    total: number
+    healthy: number
+    unhealthy: number
+    degraded: number
+  }
+}

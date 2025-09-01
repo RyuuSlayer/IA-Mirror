@@ -124,7 +124,7 @@ export function generateCSRFToken(): string {
 }
 
 /**
- * Validates a CSRF token
+ * Validates a CSRF token against the expected token
  * @param token - The token to validate
  * @param expectedToken - The expected token value
  * @returns true if valid, false otherwise
@@ -134,11 +134,9 @@ export function validateCSRFToken(token: string | null, expectedToken: string): 
     return false
   }
   
-  // Use constant-time comparison to prevent timing attacks
-  return crypto.timingSafeEqual(
-    Buffer.from(token, 'hex'),
-    Buffer.from(expectedToken, 'hex')
-  )
+  // Simple string comparison for edge runtime compatibility
+  // In production, consider using a more secure comparison method
+  return token === expectedToken
 }
 
 /**

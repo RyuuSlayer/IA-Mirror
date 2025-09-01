@@ -1,4 +1,3 @@
-- Add proper unit tests.
 - Get collection browsing to work.
 
 ## Code Quality & Performance Improvements
@@ -16,7 +15,7 @@
 - [ ] Add input debouncing for search functionality
 - [ ] Optimize file reading operations (currently reading entire files into memory)
 - [ ] Add proper cleanup for file streams and resources
-- [ ] Implement retry logic for failed network requests
+- [x] Implement retry logic for failed network requests
 
 ### Low Priority
 - [ ] Add accessibility improvements (ARIA labels, keyboard navigation)
@@ -24,4 +23,4 @@
 - [ ] Add compression for API responses
 - [ ] Optimize bundle size and implement code splitting
 - [ ] Add proper documentation for API endpoints
-- [ ] Implement proper health checks for the application
+- [x] Implement proper health checks for the application

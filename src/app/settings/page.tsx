@@ -3,6 +3,16 @@
 import { useState, useEffect } from 'react'
 import ErrorBoundary from '@/components/ErrorBoundary'
 
+// CSRF token utility
+const fetchCSRFToken = async (): Promise<string> => {
+  const response = await fetch('/api/csrf-token')
+  if (!response.ok) {
+    throw new Error('Failed to fetch CSRF token')
+  }
+  const data = await response.json()
+  return data.token
+}
+
 interface Settings {
   storagePath: string
   maxConcurrentDownloads: number
@@ -25,6 +35,29 @@ interface MaintenanceResult {
   type?: string
 }
 
+interface HealthCheckService {
+  name: string
+  status: 'healthy' | 'unhealthy' | 'degraded'
+  message?: string
+  responseTime?: number
+  lastChecked: string
+  details?: Record<string, any>
+}
+
+interface HealthCheckResponse {
+  status: 'healthy' | 'unhealthy' | 'degraded'
+  timestamp: string
+  uptime: number
+  version?: string
+  services: HealthCheckService[]
+  summary: {
+    total: number
+    healthy: number
+    unhealthy: number
+    degraded: number
+  }
+}
+
 const DEFAULT_SETTINGS: Settings = {
   storagePath: '',
   maxConcurrentDownloads: 3,
@@ -40,6 +73,9 @@ export default function SettingsPage() {
   const [maintenanceResult, setMaintenanceResult] = useState<MaintenanceResult | null>(null)
   const [isMaintenanceRunning, setIsMaintenanceRunning] = useState(false)
   const [remainingIssues, setRemainingIssues] = useState<MaintenanceIssue[]>([])
+  const [healthData, setHealthData] = useState<HealthCheckResponse | null>(null)
+  const [isHealthLoading, setIsHealthLoading] = useState(false)
+  const [healthError, setHealthError] = useState('')
 
   useEffect(() => {
     fetchSettings()
@@ -50,6 +86,44 @@ export default function SettingsPage() {
       setRemainingIssues(maintenanceResult.issues)
     }
   }, [maintenanceResult])
+
+  const fetchHealthStatus = async () => {
+    setIsHealthLoading(true)
+    setHealthError('')
+    
+    try {
+      const response = await fetch('/api/health')
+      if (response.ok) {
+        const data = await response.json()
+        setHealthData(data)
+      } else {
+        setHealthError('Failed to fetch health status')
+      }
+    } catch (error) {
+      console.error('Error fetching health status:', error)
+      setHealthError('Failed to fetch health status')
+    } finally {
+      setIsHealthLoading(false)
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'healthy': return 'text-green-600 bg-green-50'
+      case 'degraded': return 'text-yellow-600 bg-yellow-50'
+      case 'unhealthy': return 'text-red-600 bg-red-50'
+      default: return 'text-gray-600 bg-gray-50'
+    }
+  }
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'healthy': return '✓'
+      case 'degraded': return '⚠'
+      case 'unhealthy': return '✗'
+      default: return '?'
+    }
+  }
 
   const fetchSettings = async () => {
     try {
@@ -77,10 +151,14 @@ export default function SettingsPage() {
     setError('')
 
     try {
+      // Fetch CSRF token
+      const csrfToken = await fetchCSRFToken()
+      
       const response = await fetch('/api/settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
         },
         body: JSON.stringify(settings),
       })
@@ -109,10 +187,12 @@ export default function SettingsPage() {
     setError('')
 
     try {
+      const csrfToken = await fetchCSRFToken()
       const response = await fetch('/api/maintenance', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
         },
         body: JSON.stringify({ action, ...data }),
       })
@@ -399,6 +479,107 @@ export default function SettingsPage() {
                 </div>
               )}
             </div>
+          </section>
+
+          {/* Health Section */}
+          <section className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold">System Health</h2>
+              <button
+                onClick={fetchHealthStatus}
+                disabled={isHealthLoading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+              >
+                {isHealthLoading ? 'Checking...' : 'Check Health'}
+              </button>
+            </div>
+
+            {healthError && (
+              <div className="mb-4 p-4 bg-red-50 text-red-800 rounded-md">
+                {healthError}
+              </div>
+            )}
+
+            {healthData && (
+              <div className="space-y-4">
+                {/* Overall Status */}
+                <div className={`p-4 rounded-md ${getStatusColor(healthData.status)}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold">{getStatusIcon(healthData.status)}</span>
+                    <span className="font-medium capitalize">System Status: {healthData.status}</span>
+                  </div>
+                  <div className="mt-2 text-sm">
+                    <p>Last checked: {new Date(healthData.timestamp).toLocaleString()}</p>
+                    <p>Uptime: {Math.floor(healthData.uptime / 1000 / 60)} minutes</p>
+                    {healthData.version && <p>Version: {healthData.version}</p>}
+                  </div>
+                </div>
+
+                {/* Services Summary */}
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="text-center p-3 bg-gray-50 rounded">
+                    <div className="text-2xl font-bold text-gray-700">{healthData.summary.total}</div>
+                    <div className="text-sm text-gray-600">Total Services</div>
+                  </div>
+                  <div className="text-center p-3 bg-green-50 rounded">
+                    <div className="text-2xl font-bold text-green-600">{healthData.summary.healthy}</div>
+                    <div className="text-sm text-green-600">Healthy</div>
+                  </div>
+                  <div className="text-center p-3 bg-yellow-50 rounded">
+                    <div className="text-2xl font-bold text-yellow-600">{healthData.summary.degraded}</div>
+                    <div className="text-sm text-yellow-600">Degraded</div>
+                  </div>
+                  <div className="text-center p-3 bg-red-50 rounded">
+                    <div className="text-2xl font-bold text-red-600">{healthData.summary.unhealthy}</div>
+                    <div className="text-sm text-red-600">Unhealthy</div>
+                  </div>
+                </div>
+
+                {/* Individual Services */}
+                <div className="space-y-3">
+                  <h3 className="font-medium text-gray-900">Service Details</h3>
+                  {healthData.services.map((service, index) => (
+                    <div key={index} className={`p-4 rounded-md border ${getStatusColor(service.status)}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">{getStatusIcon(service.status)}</span>
+                          <span className="font-medium capitalize">{service.name}</span>
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            service.status === 'healthy' ? 'bg-green-100 text-green-800' :
+                            service.status === 'degraded' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {service.status}
+                          </span>
+                        </div>
+                        {service.responseTime && (
+                          <span className="text-sm text-gray-600">{service.responseTime}ms</span>
+                        )}
+                      </div>
+                      {service.message && (
+                        <p className="mt-2 text-sm">{service.message}</p>
+                      )}
+                      {service.details && Object.keys(service.details).length > 0 && (
+                        <div className="mt-2 text-xs text-gray-600">
+                          <details>
+                            <summary className="cursor-pointer hover:text-gray-800">View Details</summary>
+                            <pre className="mt-1 p-2 bg-gray-100 rounded text-xs overflow-x-auto">
+                              {JSON.stringify(service.details, null, 2)}
+                            </pre>
+                          </details>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!healthData && !isHealthLoading && (
+              <div className="text-center py-8 text-gray-500">
+                <p>Click "Check Health" to view system status</p>
+              </div>
+            )}
           </section>
         </div>
         </main>

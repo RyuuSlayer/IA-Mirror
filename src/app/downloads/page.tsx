@@ -1,7 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { retryFetch, RETRY_CONFIGS } from '@/lib/retry'
 import ErrorBoundary from '@/components/ErrorBoundary'
+
+// CSRF token utility
+const fetchCSRFToken = async (): Promise<string> => {
+  const response = await fetch('/api/csrf-token')
+  if (!response.ok) {
+    throw new Error('Failed to fetch CSRF token')
+  }
+  const data = await response.json()
+  return data.token
+}
 
 interface DownloadItem {
   identifier: string
@@ -32,11 +43,7 @@ export default function DownloadsPage() {
 
   const fetchDownloads = async () => {
     try {
-      const response = await fetch('/api/download')
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Failed to fetch downloads: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`)
-      }
+      const response = await retryFetch('/api/download', {}, RETRY_CONFIGS.METADATA)
       const data = await response.json()
       setDownloads(data)
       setError(null)
@@ -51,16 +58,20 @@ export default function DownloadsPage() {
 
   const handleCancel = async (identifier: string) => {
     try {
-      await fetch('/api/download', {
+      // Fetch CSRF token
+      const csrfToken = await fetchCSRFToken()
+      
+      await retryFetch('/api/download', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
         },
         body: JSON.stringify({
           identifier,
           action: 'cancel'
         }),
-      })
+      }, RETRY_CONFIGS.CRITICAL)
     } catch (error) {
       console.error('Error cancelling download:', error)
     }
@@ -68,24 +79,93 @@ export default function DownloadsPage() {
 
   const handleClear = async () => {
     try {
-      const response = await fetch('/api/download', {
+      // Fetch CSRF token
+      const csrfToken = await fetchCSRFToken()
+      
+      await retryFetch('/api/download', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
         },
         body: JSON.stringify({
           action: 'clear'
         }),
-      })
-      
-      if (!response.ok) {
-        throw new Error('Failed to clear downloads')
-      }
+      }, RETRY_CONFIGS.CRITICAL)
       
       // Wait for API completion before refreshing
       await fetchDownloads()
     } catch (error) {
       console.error('Error clearing downloads:', error)
+    }
+  }
+
+  const handleStartAll = async () => {
+    try {
+      // Fetch CSRF token
+      const csrfToken = await fetchCSRFToken()
+      
+      await retryFetch('/api/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        body: JSON.stringify({
+          action: 'start-all'
+        }),
+      }, RETRY_CONFIGS.CRITICAL)
+      
+      // Wait for API completion before refreshing
+      await fetchDownloads()
+    } catch (error) {
+      console.error('Error starting all downloads:', error)
+    }
+  }
+
+  const handlePauseAll = async () => {
+    try {
+      // Fetch CSRF token
+      const csrfToken = await fetchCSRFToken()
+      
+      await retryFetch('/api/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        body: JSON.stringify({
+          action: 'pause-all'
+        }),
+      }, RETRY_CONFIGS.CRITICAL)
+      
+      // Wait for API completion before refreshing
+      await fetchDownloads()
+    } catch (error) {
+      console.error('Error pausing all downloads:', error)
+    }
+  }
+
+  const handleCancelAll = async () => {
+    try {
+      // Fetch CSRF token
+      const csrfToken = await fetchCSRFToken()
+      
+      await retryFetch('/api/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        body: JSON.stringify({
+          action: 'cancel-all'
+        }),
+      }, RETRY_CONFIGS.CRITICAL)
+      
+      // Wait for API completion before refreshing
+      await fetchDownloads()
+    } catch (error) {
+      console.error('Error cancelling all downloads:', error)
     }
   }
 
@@ -112,6 +192,17 @@ export default function DownloadsPage() {
   // Only show clear button if there are any completed or failed downloads
   const hasFinishedDownloads = downloads.some(d => 
     d.status === 'completed' || d.status === 'failed'
+  )
+
+  // Show start all button if there are queued downloads
+  const hasQueuedDownloads = downloads.some(d => d.status === 'queued')
+
+  // Show pause all button if there are downloading items
+  const hasDownloadingItems = downloads.some(d => d.status === 'downloading')
+
+  // Show cancel all button if there are active downloads (queued or downloading)
+  const hasActiveDownloads = downloads.some(d => 
+    d.status === 'queued' || d.status === 'downloading'
   )
 
   // Sort downloads to show active ones first
@@ -160,14 +251,40 @@ export default function DownloadsPage() {
           )}
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold text-[#2C2C2C]">Downloads</h1>
-          {hasFinishedDownloads && (
-            <button
-              onClick={handleClear}
-              className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-            >
-              Clear Completed
-            </button>
-          )}
+            <div className="flex gap-2">
+               {hasQueuedDownloads && (
+                 <button
+                   onClick={handleStartAll}
+                   className="px-4 py-2 text-sm bg-green-100 text-green-700 rounded-md hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                 >
+                   Start All
+                 </button>
+               )}
+               {hasDownloadingItems && (
+                 <button
+                   onClick={handlePauseAll}
+                   className="px-4 py-2 text-sm bg-yellow-100 text-yellow-700 rounded-md hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
+                 >
+                   Pause All
+                 </button>
+               )}
+               {hasActiveDownloads && (
+                 <button
+                   onClick={handleCancelAll}
+                   className="px-4 py-2 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                 >
+                   Cancel All
+                 </button>
+               )}
+               {hasFinishedDownloads && (
+                 <button
+                   onClick={handleClear}
+                   className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                 >
+                   Clear Completed
+                 </button>
+               )}
+             </div>
         </div>
 
         <div className="space-y-4">

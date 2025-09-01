@@ -5,6 +5,16 @@ import Image from 'next/image'
 import Link from 'next/link'
 import ErrorBoundary from './ErrorBoundary'
 
+// CSRF token utility
+const fetchCSRFToken = async (): Promise<string> => {
+  const response = await fetch('/api/csrf-token')
+  if (!response.ok) {
+    throw new Error('Failed to fetch CSRF token')
+  }
+  const data = await response.json()
+  return data.token
+}
+
 interface BrowseResultsProps {
   initialQuery?: string
   initialMediaType?: string
@@ -151,10 +161,14 @@ export default function BrowseResults({
         return newSet
       })
 
+      // Fetch CSRF token
+      const csrfToken = await fetchCSRFToken()
+
       const response = await fetch('/api/downloads', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
         },
         body: JSON.stringify({
           identifier,
@@ -174,6 +188,7 @@ export default function BrowseResults({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
           },
           body: JSON.stringify({
             identifier,
@@ -215,10 +230,14 @@ export default function BrowseResults({
     try {
       setIgnoringItems(prev => new Set(prev).add(identifier))
       
+      // Fetch CSRF token
+      const csrfToken = await fetchCSRFToken()
+      
       const response = await fetch('/api/ignored', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
         },
         body: JSON.stringify({
           identifier,
