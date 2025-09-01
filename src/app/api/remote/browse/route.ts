@@ -4,6 +4,7 @@ import { searchItems } from '@/lib/archive'
 import fs from 'fs'
 import path from 'path'
 import debug from 'debug'
+import { readJsonFile } from '@/lib/utils'
 import type { BrowseResponse, SearchParams, ApiResponse } from '@/types/api'
 
 const log = debug('ia-mirror:api:remote:browse')
@@ -12,9 +13,8 @@ const ignoredItemsPath = path.join(process.cwd(), 'ignored-items.json')
 // Load ignored items from file
 function loadIgnoredItems(): Set<string> {
   try {
-    if (fs.existsSync(ignoredItemsPath)) {
-      const data = fs.readFileSync(ignoredItemsPath, 'utf8')
-      const items = JSON.parse(data)
+    const items = readJsonFile(ignoredItemsPath)
+    if (items && Array.isArray(items)) {
       return new Set(items)
     }
   } catch (error) {

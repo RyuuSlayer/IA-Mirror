@@ -3,6 +3,8 @@ import path from 'path'
 import debug from 'debug'
 import type { DownloadItem } from '@/types/api'
 import { readJsonFile } from './utils'
+import { writeJsonFileAtomic } from './streamingJson'
+import { FileSystemError, ValidationError } from './errors'
 
 const log = debug('ia-mirror:lib:downloads')
 
@@ -14,38 +16,27 @@ export function readDownloads(): DownloadItem[] {
 }
 
 export function writeDownloads(downloads: DownloadItem[]): boolean {
-  let tempFile: string | null = null
+  if (!Array.isArray(downloads)) {
+    throw new ValidationError('Downloads must be an array')
+  }
   
   try {
-    // Create a temporary file first to ensure atomic writes
-    tempFile = `${DOWNLOADS_FILE}.tmp`
-    const downloadsJson = JSON.stringify(downloads, null, 2)
-    
-    // Write to temporary file first
-    fs.writeFileSync(tempFile, downloadsJson, { encoding: 'utf8', mode: 0o644 })
-    
-    // Verify the file was written correctly by reading it back
-    const writtenContent = fs.readFileSync(tempFile, 'utf8')
-    JSON.parse(writtenContent) // Validate JSON structure
-    
-    // Atomically move temp file to final location
-    fs.renameSync(tempFile, DOWNLOADS_FILE)
-    tempFile = null // Mark as successfully moved
-    
-    return true
+    return writeJsonFileAtomic(DOWNLOADS_FILE, downloads)
   } catch (error) {
     console.error('Error writing downloads:', error)
     
-    // Clean up temporary file if it exists
-    if (tempFile && fs.existsSync(tempFile)) {
-      try {
-        fs.unlinkSync(tempFile)
-      } catch (cleanupError) {
-        console.error('Error cleaning up temporary file:', cleanupError)
-      }
+    // Throw specific error based on the type of failure
+    if (error instanceof SyntaxError) {
+      throw new ValidationError(`Invalid JSON structure: ${error.message}`)
+    } else if (error instanceof Error && error.message.includes('ENOENT')) {
+      throw new FileSystemError(`Directory not found: ${path.dirname(DOWNLOADS_FILE)}`)
+    } else if (error instanceof Error && error.message.includes('EACCES')) {
+      throw new FileSystemError(`Permission denied writing to: ${DOWNLOADS_FILE}`)
+    } else if (error instanceof Error && error.message.includes('ENOSPC')) {
+      throw new FileSystemError('No space left on device')
+    } else {
+      throw new FileSystemError(`Failed to write downloads file: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
-    
-    return false
   }
 }
 
@@ -55,23 +46,49 @@ export function findDownloadByIdentifier(identifier: string): DownloadItem | und
 }
 
 export function updateDownloadStatus(identifier: string, updates: Partial<DownloadItem>): boolean {
+  if (!identifier) {
+    throw new ValidationError('Identifier is required')
+  }
+  
+  if (!updates || typeof updates !== 'object') {
+    throw new ValidationError('Updates must be a valid object')
+  }
+  
   try {
     const downloads = readDownloads()
     const downloadIndex = downloads.findIndex(d => d.identifier === identifier)
     
     if (downloadIndex === -1) {
-      return false
+      throw new ValidationError(`Download with identifier '${identifier}' not found`)
     }
     
     downloads[downloadIndex] = { ...downloads[downloadIndex], ...updates }
-    return writeDownloads(downloads)
+    writeDownloads(downloads)
+    return true
   } catch (error) {
+    if (error instanceof ValidationError || error instanceof FileSystemError) {
+      throw error
+    }
     console.error('Error updating download status:', error)
-    return false
+    throw new FileSystemError(`Failed to update download status: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
 export async function queueDownloadDirect(identifier: string, title: string, file: string, mediatype: string, isDerivative: boolean = false): Promise<boolean> {
+  // Validate required parameters
+  if (!identifier) {
+    throw new ValidationError('Identifier is required')
+  }
+  if (!title) {
+    throw new ValidationError('Title is required')
+  }
+  if (!file) {
+    throw new ValidationError('File is required')
+  }
+  if (!mediatype) {
+    throw new ValidationError('Media type is required')
+  }
+  
   try {
     const downloads = readDownloads()
     
@@ -82,8 +99,7 @@ export async function queueDownloadDirect(identifier: string, title: string, fil
     
     if (existingDownload) {
       if (existingDownload.status === 'downloading') {
-        console.log(`Already downloading ${identifier}/${file}`)
-        return false
+        throw new ValidationError(`Already downloading ${identifier}/${file}`)
       }
 
       // Update existing download
@@ -114,12 +130,20 @@ export async function queueDownloadDirect(identifier: string, title: string, fil
     console.log(`Successfully queued file ${file} for ${identifier}`)
     
     // Try to start the download if possible
-    await startNextQueuedDownload()
+    try {
+      await startNextQueuedDownload()
+    } catch (error) {
+      console.error('Error starting next download:', error)
+      // Don't throw here - the download is queued even if starting fails
+    }
     
     return true
   } catch (error) {
+    if (error instanceof ValidationError || error instanceof FileSystemError) {
+      throw error
+    }
     console.error('Error queuing download directly:', error)
-    return false
+    throw new FileSystemError(`Failed to queue download: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 

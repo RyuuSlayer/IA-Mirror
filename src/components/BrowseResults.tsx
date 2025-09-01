@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import ErrorBoundary from './ErrorBoundary'
+import { retryFetch, RETRY_CONFIGS } from '@/lib/retry'
 
 // CSRF token utility
 const fetchCSRFToken = async (): Promise<string> => {
@@ -95,9 +96,9 @@ export default function BrowseResults({
           hideIgnored: hideIgnored.toString(),
         })
 
-        const response = await fetch(`/api/remote/browse?${params}`, {
+        const response = await retryFetch(`/api/remote/browse?${params}`, {
           signal: abortController.signal
-        })
+        }, RETRY_CONFIGS.METADATA)
         
         if (!response.ok) {
           const errorText = await response.text()
@@ -164,7 +165,7 @@ export default function BrowseResults({
       // Fetch CSRF token
       const csrfToken = await fetchCSRFToken()
 
-      const response = await fetch('/api/downloads', {
+      const response = await retryFetch('/api/downloads', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -175,7 +176,7 @@ export default function BrowseResults({
           title,
           mediatype: mediatype || 'other' // Ensure we always send a mediatype
         }),
-      })
+      }, RETRY_CONFIGS.CRITICAL)
 
       if (!response.ok) {
         const data = await response.json()
@@ -184,7 +185,7 @@ export default function BrowseResults({
 
       // Automatically ignore downloaded items
       try {
-        await fetch('/api/ignored', {
+        await retryFetch('/api/ignored', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -194,7 +195,7 @@ export default function BrowseResults({
             identifier,
             action: 'ignore'
           })
-        })
+        }, RETRY_CONFIGS.CRITICAL)
         
         // Update the item in the results to show it's ignored
         setResults(prev => prev.map(item => 
@@ -233,7 +234,7 @@ export default function BrowseResults({
       // Fetch CSRF token
       const csrfToken = await fetchCSRFToken()
       
-      const response = await fetch('/api/ignored', {
+      const response = await retryFetch('/api/ignored', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -243,7 +244,7 @@ export default function BrowseResults({
           identifier,
           action: isIgnored ? 'unignore' : 'ignore'
         })
-      })
+      }, RETRY_CONFIGS.CRITICAL)
       
       if (!response.ok) {
         throw new Error('Failed to update ignore status')

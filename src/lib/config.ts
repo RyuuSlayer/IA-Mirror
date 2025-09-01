@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { readJsonFile } from './utils'
+import { writeJsonFileAtomic } from './streamingJson'
 
 const CONFIG_FILE = path.join(process.cwd(), 'config.json')
 
@@ -27,31 +28,13 @@ function ensureConfigExists(): void {
       }
       
       // Use atomic write for config creation
-      tempFile = `${CONFIG_FILE}.tmp`
-      const configJson = JSON.stringify(defaultConfig, null, 2)
-      
-      fs.writeFileSync(tempFile, configJson, { encoding: 'utf8', mode: 0o644 })
-      
-      // Verify the file was written correctly
-      const writtenContent = fs.readFileSync(tempFile, 'utf8')
-      JSON.parse(writtenContent) // Validate JSON structure
-      
-      // Atomically move temp file to final location
-      fs.renameSync(tempFile, CONFIG_FILE)
-      tempFile = null // Mark as successfully moved
+      if (!writeJsonFileAtomic(CONFIG_FILE, defaultConfig)) {
+        throw new Error('Failed to write default config')
+      }
       
       console.log('Created default config.json with sensible defaults')
     } catch (error) {
       console.warn('Could not create default config.json:', error)
-      
-      // Clean up temporary file if it exists
-      if (tempFile && fs.existsSync(tempFile)) {
-        try {
-          fs.unlinkSync(tempFile)
-        } catch (cleanupError) {
-          console.error('Error cleaning up temporary config file:', cleanupError)
-        }
-      }
     }
   }
 }
@@ -94,37 +77,10 @@ export function readSettings(): Settings {
 }
 
 export function writeSettings(settings: Settings): boolean {
-  let tempFile: string | null = null
-  
   try {
-    // Create a temporary file first to ensure atomic writes
-    tempFile = `${CONFIG_FILE}.tmp`
-    const settingsJson = JSON.stringify(settings, null, 2)
-    
-    // Write to temporary file first
-    fs.writeFileSync(tempFile, settingsJson, { encoding: 'utf8', mode: 0o644 })
-    
-    // Verify the file was written correctly by reading it back
-    const writtenContent = fs.readFileSync(tempFile, 'utf8')
-    JSON.parse(writtenContent) // Validate JSON structure
-    
-    // Atomically move temp file to final location
-    fs.renameSync(tempFile, CONFIG_FILE)
-    tempFile = null // Mark as successfully moved
-    
-    return true
+    return writeJsonFileAtomic(CONFIG_FILE, settings)
   } catch (error) {
     console.error('Error writing settings:', error)
-    
-    // Clean up temporary file if it exists
-    if (tempFile && fs.existsSync(tempFile)) {
-      try {
-        fs.unlinkSync(tempFile)
-      } catch (cleanupError) {
-        console.error('Error cleaning up temporary file:', cleanupError)
-      }
-    }
-    
     return false
   }
 }

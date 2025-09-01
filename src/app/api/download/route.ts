@@ -9,6 +9,15 @@ import {
   validateStringParam,
   checkRateLimit
 } from '@/lib/security'
+import { 
+  ValidationError, 
+  NetworkError, 
+  FileSystemError, 
+  ProcessError, 
+  MetadataError, 
+  DownloadError,
+  handleApiError
+} from '@/lib/errors'
 import type { DownloadItem, DownloadRequest, ApiResponse } from '@/types/api'
 // Map of media types to folder names
 const MEDIA_TYPE_FOLDERS = {
@@ -78,41 +87,57 @@ async function fetchMetadata(identifier: string) {
 const activeProcesses: { [key: string]: ReturnType<typeof spawn> } = {}
 
 async function startDownload(downloadItem: DownloadItem) {
-  const config = await getConfig()
-  
-  // Get metadata to find the file to download if not specified
-  if (!downloadItem.file) {
-    const metadata = await fetchMetadata(downloadItem.identifier)
-    if (!metadata?.files?.length) {
-      throw new Error('No files found in metadata')
-    }
-
-    // Find first non-derivative file
-    downloadItem.file = metadata.files.find((f: any) => !isDerivativeFile(f.name))?.name
+  try {
+    const config = await getConfig()
+    
+    // Get metadata to find the file to download if not specified
     if (!downloadItem.file) {
-      // If no non-derivative files found, use the first file
-      downloadItem.file = metadata.files[0].name
+      const metadata = await fetchMetadata(downloadItem.identifier)
+      if (!metadata?.files?.length) {
+        throw new MetadataError('No files found in metadata', downloadItem.identifier)
+      }
+
+      // Find first non-derivative file
+      downloadItem.file = metadata.files.find((f: any) => !isDerivativeFile(f.name))?.name
+      if (!downloadItem.file) {
+        // If no non-derivative files found, use the first file
+        downloadItem.file = metadata.files[0].name
+      }
     }
-  }
 
-  // Start download process
-  const downloadProcess = spawn('node', [
-    path.join(process.cwd(), 'scripts', 'download.js'),
-    downloadItem.identifier,
-    config.cacheDir,
-    downloadItem.mediatype || 'other',
-    downloadItem.file || '' // Pass the specific file to download
-  ])
+    // Validate required paths
+    const scriptPath = path.join(process.cwd(), 'scripts', 'download.js')
+    if (!fs.existsSync(scriptPath)) {
+      throw new FileSystemError('Download script not found', scriptPath, 'read')
+    }
+    
+    if (!fs.existsSync(config.cacheDir)) {
+      throw new FileSystemError('Cache directory not found', config.cacheDir, 'access')
+    }
 
-  // Store the process
-  activeProcesses[downloadItem.identifier] = downloadProcess
+    // Start download process
+    const downloadProcess = spawn('node', [
+      scriptPath,
+      downloadItem.identifier,
+      config.cacheDir,
+      downloadItem.mediatype || 'other',
+      downloadItem.file || '' // Pass the specific file to download
+    ])
 
-  // Update download with process ID
-  updateDownloadStatus(downloadItem.identifier, {
-    status: 'downloading',
-    pid: downloadProcess.pid,
-    error: undefined
-  })
+    // Check if process started successfully
+    if (!downloadProcess.pid) {
+      throw new ProcessError('Failed to start download process', undefined, undefined)
+    }
+
+    // Store the process
+    activeProcesses[downloadItem.identifier] = downloadProcess
+
+    // Update download with process ID
+    updateDownloadStatus(downloadItem.identifier, {
+      status: 'downloading',
+      pid: downloadProcess.pid,
+      error: undefined
+    })
 
   // Handle process events
   downloadProcess.stdout.on('data', (data) => {
@@ -134,21 +159,54 @@ async function startDownload(downloadItem: DownloadItem) {
     updateDownloadStatus(downloadItem.identifier, { error })
   })
 
-  downloadProcess.on('close', (code) => {
-    console.log(`Download process exited with code ${code}`)
-    // Remove from active processes
-    delete activeProcesses[downloadItem.identifier]
-    updateDownloadStatus(downloadItem.identifier, {
-      status: code === 0 ? 'completed' : 'failed',
-      error: code === 0 ? undefined : `Process exited with code ${code}`,
-      completedAt: new Date().toISOString(),
-      pid: undefined,
-      progress: code === 0 ? 100 : undefined
+    downloadProcess.on('close', (code) => {
+      console.log(`Download process exited with code ${code}`)
+      // Remove from active processes
+      delete activeProcesses[downloadItem.identifier]
+      updateDownloadStatus(downloadItem.identifier, {
+        status: code === 0 ? 'completed' : 'failed',
+        error: code === 0 ? undefined : `Process exited with code ${code}`,
+        completedAt: new Date().toISOString(),
+        pid: undefined,
+        progress: code === 0 ? 100 : undefined
+      })
+
+      // Check for queued downloads to start
+      startNextQueuedDownload()
     })
 
-    // Check for queued downloads to start
-    startNextQueuedDownload()
-  })
+    downloadProcess.on('error', (error) => {
+      console.error(`Download process error: ${error.message}`)
+      delete activeProcesses[downloadItem.identifier]
+      updateDownloadStatus(downloadItem.identifier, {
+        status: 'failed',
+        error: `Process error: ${error.message}`,
+        pid: undefined
+      })
+    })
+  } catch (error) {
+    console.error('Error starting download:', error)
+    
+    // Update download status with specific error
+    let errorMessage = 'Unknown error'
+    if (error instanceof MetadataError) {
+      errorMessage = `Metadata error: ${error.message}`
+    } else if (error instanceof FileSystemError) {
+      errorMessage = `File system error: ${error.message}`
+    } else if (error instanceof ProcessError) {
+      errorMessage = `Process error: ${error.message}`
+    } else if (error instanceof Error) {
+      errorMessage = error.message
+    }
+    
+    updateDownloadStatus(downloadItem.identifier, {
+      status: 'failed',
+      error: errorMessage,
+      pid: undefined
+    })
+    
+    throw error
+  }
 }
 
 async function startNextQueuedDownload() {
@@ -226,8 +284,20 @@ export async function GET(request: NextRequest): Promise<NextResponse<DownloadIt
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse>> {
   try {
     const config = await getConfig()
-    const body: DownloadRequest = await request.json()
+    let body: DownloadRequest
+    
+    try {
+      body = await request.json()
+    } catch (error) {
+      throw new ValidationError('Invalid JSON in request body')
+    }
+    
     const { identifier, title, file, action, isDerivative } = body
+    
+    if (!action) {
+      throw new ValidationError('Action is required')
+    }
+    
     const downloads = readDownloads()
 
     if (action === 'clear') {
@@ -240,6 +310,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     }
 
     if (action === 'cancel') {
+      if (!identifier) {
+        throw new ValidationError('Identifier is required for cancel action')
+      }
+      
       // Try to kill the process if it exists
       const process = activeProcesses[identifier]
       if (process) {
@@ -247,7 +321,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
           process.kill()
           delete activeProcesses[identifier]
         } catch (error) {
-          console.error('Error killing process:', error)
+          throw new ProcessError(`Failed to kill download process: ${error instanceof Error ? error.message : 'Unknown error'}`, process.pid)
         }
       }
       
@@ -354,6 +428,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     }
 
     if (action === 'queue') {
+      // Validate required fields
+      if (!identifier || !title) {
+        throw new ValidationError('Identifier and title are required for queue action')
+      }
+
       // Check if already downloading
       const existingDownload = downloads.find(d => 
         d.identifier === identifier && d.file === file
@@ -361,10 +440,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       
       if (existingDownload) {
         if (existingDownload.status === 'downloading') {
-          return NextResponse.json(
-            { error: 'Already downloading' },
-            { status: 400 }
-          )
+          throw new ValidationError('Download already in progress')
         }
 
         // Update existing download
@@ -393,13 +469,18 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       }
 
       // Try to start the download if possible
-      await startNextQueuedDownload()
+      try {
+        await startNextQueuedDownload()
+      } catch (error) {
+        console.error('Error starting download:', error)
+        // Don't throw here - the download is queued even if it fails to start immediately
+      }
       return NextResponse.json({ success: true })
     }
 
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+    throw new ValidationError(`Invalid action: ${action}`)
   } catch (error) {
     console.error('Error in POST /api/download:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return handleApiError(error)
   }
 }

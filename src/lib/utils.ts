@@ -114,6 +114,17 @@ export function readJsonFile(filePath: string): any {
       return null;
     }
     
+    // Check file size to determine reading strategy
+    const stats = fs.statSync(filePath);
+    
+    // For small files (< 1MB), use synchronous reading for better performance
+    if (stats.size < 1024 * 1024) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      return safeJsonParse(content, filePath);
+    }
+    
+    // For larger files, log a warning and still use sync (async version available separately)
+    console.warn(`Large JSON file detected (${stats.size} bytes): ${filePath}. Consider using readJsonFileStreaming for better memory efficiency.`);
     const content = fs.readFileSync(filePath, 'utf8');
     return safeJsonParse(content, filePath);
   } catch (error) {

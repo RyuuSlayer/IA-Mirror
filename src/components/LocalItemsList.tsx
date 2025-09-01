@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import BrowseFilters from './BrowseFilters'
 import ErrorBoundary from './ErrorBoundary'
 import debounce from 'lodash/debounce'
+import { retryFetch, RETRY_CONFIGS } from '@/lib/retry'
 import type { LocalItem, PaginatedResponse } from '@/types/api'
 
 type Item = LocalItem
@@ -43,7 +44,7 @@ export default function LocalItemsList() {
         params.set('pageSize', currentPageSize.toString())
         params.set('showAll', showAll.toString())
 
-        const response = await fetch(`/api/items?${params.toString()}`)
+        const response = await retryFetch(`/api/items?${params.toString()}`, {}, RETRY_CONFIGS.METADATA)
         if (!response.ok) {
           const errorText = await response.text()
           throw new Error(`Failed to fetch local items: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`)

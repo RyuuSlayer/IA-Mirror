@@ -3,6 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import debug from 'debug'
 import { getConfig } from '@/lib/config'
+import { createSafeReadStream } from '@/lib/streamUtils'
 import { 
   sanitizeFilePath, 
   validateIdentifier, 
@@ -119,9 +120,6 @@ export async function GET(
       return NextResponse.json({ error: 'Not a file' }, { status: 400 })
     }
 
-    // Read file
-    const fileBuffer = fs.readFileSync(filePath)
-
     // Determine content type
     const ext = path.extname(fileName).toLowerCase()
     const contentType = {
@@ -136,8 +134,33 @@ export async function GET(
       '.mp4': 'video/mp4',
     }[ext] || 'application/octet-stream'
 
-    // Return file with appropriate headers
-    return new NextResponse(fileBuffer, {
+    // Create a streaming response
+    const { stream } = createSafeReadStream(filePath, { timeout: 60000 })
+    
+    // Convert Node.js ReadStream to Web ReadableStream
+    const readableStream = new ReadableStream({
+      start(controller) {
+        stream.on('data', (chunk) => {
+          controller.enqueue(new Uint8Array(chunk))
+        })
+        
+        stream.on('end', () => {
+          controller.close()
+        })
+        
+        stream.on('error', (error) => {
+          log('Stream error:', error)
+          controller.error(error)
+        })
+      },
+      
+      cancel() {
+        stream.destroy()
+      }
+    })
+
+    // Return streaming response with appropriate headers
+    return new NextResponse(readableStream, {
       headers: {
         'Content-Type': contentType,
         'Content-Length': String(stats.size),
