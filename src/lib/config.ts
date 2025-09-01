@@ -8,12 +8,14 @@ interface Config {
   cacheDir: string
   maxConcurrentDownloads: number
   skipHashCheck: boolean
+  baseUrl: string
 }
 
 export interface Settings {
   storagePath: string
   maxConcurrentDownloads: number
   skipHashCheck: boolean
+  baseUrl: string
 }
 
 export function readSettings(): Settings {
@@ -23,14 +25,16 @@ export function readSettings(): Settings {
     return {
       storagePath: settings.storagePath || '',
       maxConcurrentDownloads: settings.maxConcurrentDownloads || 3,
-      skipHashCheck: settings.skipHashCheck || false
+      skipHashCheck: settings.skipHashCheck || false,
+      baseUrl: settings.baseUrl || 'http://localhost:3000'
     }
   }
   
   return { 
     storagePath: '',
     maxConcurrentDownloads: 3,
-    skipHashCheck: false
+    skipHashCheck: false,
+    baseUrl: 'http://localhost:3000'
   }
 }
 
@@ -48,7 +52,7 @@ export async function getConfig(): Promise<Config> {
   const settings = readSettings()
   
   // Use storage path from config, or fallback to environment variable or default
-  const cacheDir = settings.storagePath || process.env.CACHE_DIR || 'C:\\archiveorg'
+  const cacheDir = settings.storagePath || process.env.CACHE_DIR || path.join(process.cwd(), 'cache')
 
   // Ensure cache directory exists
   if (!fs.existsSync(cacheDir)) {
@@ -58,9 +62,10 @@ export async function getConfig(): Promise<Config> {
       console.error('Failed to create cache directory:', error)
       // If we can't create the configured directory, fall back to default
       return {
-        cacheDir: 'C:\\archiveorg',
+        cacheDir: path.join(process.cwd(), 'cache'),
         maxConcurrentDownloads: settings.maxConcurrentDownloads,
-        skipHashCheck: settings.skipHashCheck
+        skipHashCheck: settings.skipHashCheck,
+        baseUrl: settings.baseUrl
       }
     }
   }
@@ -68,6 +73,12 @@ export async function getConfig(): Promise<Config> {
   return {
     cacheDir,
     maxConcurrentDownloads: settings.maxConcurrentDownloads,
-    skipHashCheck: settings.skipHashCheck
+    skipHashCheck: settings.skipHashCheck,
+    baseUrl: settings.baseUrl
   }
+}
+
+export function getBaseUrl(): string {
+  const settings = readSettings()
+  return settings.baseUrl
 }

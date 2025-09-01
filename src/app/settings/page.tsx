@@ -7,6 +7,7 @@ interface Settings {
   storagePath: string
   maxConcurrentDownloads: number
   skipHashCheck: boolean
+  baseUrl: string
 }
 
 interface MaintenanceIssue {
@@ -27,7 +28,8 @@ interface MaintenanceResult {
 const DEFAULT_SETTINGS: Settings = {
   storagePath: '',
   maxConcurrentDownloads: 3,
-  skipHashCheck: false
+  skipHashCheck: false,
+  baseUrl: 'http://localhost:3000'
 }
 
 export default function SettingsPage() {
@@ -57,7 +59,8 @@ export default function SettingsPage() {
         setSettings({
           storagePath: data.storagePath || '',
           maxConcurrentDownloads: data.maxConcurrentDownloads || 3,
-          skipHashCheck: data.skipHashCheck || false
+          skipHashCheck: data.skipHashCheck || false,
+          baseUrl: data.baseUrl || 'http://localhost:3000'
         })
       }
     } catch (error) {
@@ -238,6 +241,23 @@ export default function SettingsPage() {
                     max="10"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                   />
+                </div>
+
+                <div>
+                  <label htmlFor="baseUrl" className="block text-sm font-medium text-gray-700 mb-1">
+                    Base URL
+                  </label>
+                  <input
+                    type="url"
+                    id="baseUrl"
+                    value={settings.baseUrl}
+                    onChange={(e) => setSettings({ ...settings, baseUrl: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="http://localhost:3000"
+                  />
+                  <p className="mt-1 text-sm text-gray-500">
+                    The base URL for the application (including protocol and port)
+                  </p>
                 </div>
 
                 <div className="space-y-4">

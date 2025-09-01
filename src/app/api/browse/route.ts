@@ -5,6 +5,15 @@ import { getLocalItems } from '@/lib/localItems'
 import { searchItems } from '@/lib/archive'
 import { getConfig } from '@/lib/config'
 import debug from 'debug'
+import { 
+  validateNumericParam, 
+  validateStringParam, 
+  validateMediaType,
+  validateSortParam,
+  checkRateLimit,
+  sanitizeInput
+} from '@/lib/security'
+import type { BrowseResponse, SearchParams, ApiResponse } from '@/types/api'
 
 const log = debug('ia-mirror:api:browse')
 const ignoredItemsPath = path.join(process.cwd(), 'ignored-items.json')
@@ -27,19 +36,34 @@ function isDerivativeFile(file: any) {
   return file.source === 'derivative' || file.original
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse<BrowseResponse | ApiResponse>> {
   try {
-    const { searchParams } = new URL(request.url)
-    const query = searchParams.get('q') || ''
-    const mediatype = searchParams.get('mediatype') || ''
-    const sort = searchParams.get('sort') || '-downloads'
-    const hideDownloaded = searchParams.get('hideDownloaded') === 'true'
-    const hideIgnored = searchParams.get('hideIgnored') === 'true'
-    const pageParam = searchParams.get('page') || '1'
-  const sizeParam = searchParams.get('size') || '20'
-  
-  const page = Math.max(1, parseInt(pageParam, 10) || 1)
-  const size = Math.max(1, Math.min(100, parseInt(sizeParam, 10) || 20))
+    // Rate limiting
+    const clientIP = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+    if (!checkRateLimit(`browse:${clientIP}`, 100, 60000)) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded' },
+        { status: 429 }
+      )
+    }
+
+    const { searchParams: urlSearchParams } = new URL(request.url, `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host') || 'localhost:3000'}`)
+    
+    // Validate and sanitize input parameters
+    const rawQuery = urlSearchParams.get('q')
+    const query = rawQuery ? sanitizeInput(validateStringParam(rawQuery, 500) || '') : ''
+    
+    const rawMediatype = urlSearchParams.get('mediatype')
+    const mediatype = validateMediaType(rawMediatype) || ''
+    
+    const rawSort = urlSearchParams.get('sort')
+    const sort = validateSortParam(rawSort)
+    
+    const hideDownloaded = urlSearchParams.get('hideDownloaded') === 'true'
+    const hideIgnored = urlSearchParams.get('hideIgnored') === 'true'
+    
+    const page = validateNumericParam(urlSearchParams.get('page'), 1, 1000) || 1
+    const size = validateNumericParam(urlSearchParams.get('size'), 1, 100) || 20
 
     // Always skip derivative files
 
@@ -50,23 +74,25 @@ export async function GET(request: NextRequest) {
       const start = (page - 1) * size
       const items = localItems.items.slice(start, start + size)
 
-      return NextResponse.json({
+      const response: BrowseResponse = {
         items,
         total: localItems.total,
         page,
         size,
         pages: Math.ceil(localItems.total / size)
-      })
+      }
+      return NextResponse.json(response)
     }
 
     // Search Internet Archive
-    const searchResults = await searchItems({
+    const searchOptions = {
       query,
       mediatype,
       sort,
       page,
       size
-    })
+    }
+    const searchResults = await searchItems(searchOptions)
 
     // Get local items to check which are downloaded
     const localItems = await getLocalItems({ mediatype })
@@ -88,13 +114,14 @@ export async function GET(request: NextRequest) {
         return true
       })
 
-    return NextResponse.json({
+    const response: BrowseResponse = {
       items,
       total: searchResults.total,
       page,
       size,
       pages: Math.ceil(searchResults.total / size)
-    })
+    }
+    return NextResponse.json(response)
 
   } catch (error) {
     console.error('Browse API error:', error)

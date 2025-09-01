@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createErrorResponse } from '@/lib/utils'
-import { readDownloads, writeDownloads, DownloadItem } from '@/lib/downloads'
+import { getBaseUrl } from '@/lib/config'
+import { readDownloads, writeDownloads } from '@/lib/downloads'
+import type { DownloadItem } from '@/types/api'
+import type { DownloadRequest, ApiResponse } from '@/types/api'
 
-export async function GET() {
+export async function GET(): Promise<NextResponse<DownloadItem[] | ApiResponse>> {
   const downloads = readDownloads()
   return NextResponse.json(downloads)
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse>> {
   try {
-    const { identifier, title, mediatype } = await request.json()
+    const body: DownloadRequest = await request.json()
+    const { identifier, title, mediatype } = body
     
     if (!identifier || !title) {
       return createErrorResponse('Identifier and title are required', 400)
@@ -34,10 +38,8 @@ export async function POST(request: NextRequest) {
     downloads.push(newDownload)
     writeDownloads(downloads)
 
-    // Get the base URL from the request
-    const protocol = request.headers.get('x-forwarded-proto') || 'http'
-    const host = request.headers.get('host') || 'localhost:3000'
-    const baseUrl = `${protocol}://${host}`
+    // Get the configured base URL
+    const baseUrl = getBaseUrl()
 
     // Trigger queue processing with absolute URL
     fetch(`${baseUrl}/api/downloads/process`, { method: 'GET' })

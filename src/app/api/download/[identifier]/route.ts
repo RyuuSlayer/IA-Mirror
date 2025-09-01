@@ -3,11 +3,15 @@ import path from 'path'
 import fs from 'fs'
 import debug from 'debug'
 import { getConfig } from '@/lib/config'
+import { 
+  sanitizeFilePath, 
+  validateIdentifier, 
+  validateFileName,
+  checkRateLimit
+} from '@/lib/security'
+import type { FileInfo, ApiResponse } from '@/types/api'
 
 const log = debug('ia-mirror:api:download')
-
-// Use environment variable or default to S:\Internet Archive
-const cacheDir = process.env.CACHE_DIR || 'S:\\Internet Archive'
 
 function isDerivativeFile(file: any) {
   return file.source === 'derivative' || file.original
@@ -30,16 +34,35 @@ const MEDIA_TYPE_FOLDERS: { [key: string]: string } = {
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ identifier: string }> }
-) {
+): Promise<NextResponse<FileInfo[] | ApiResponse>> {
   try {
+    // Get configuration
+    const config = await getConfig()
+    const cacheDir = config.cacheDir
+
+    // Rate limiting
+    const clientIP = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+    if (!checkRateLimit(`download:${clientIP}`, 30, 60000)) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded' },
+        { status: 429 }
+      )
+    }
+
     const resolvedParams = await params
     const identifier = resolvedParams.identifier
     const searchParams = request.nextUrl.searchParams
     const fileName = searchParams.get('file')
     const fileMetadata = searchParams.get('metadata')
 
-    if (!fileName) {
-      return NextResponse.json({ error: 'No file specified' }, { status: 400 })
+    // Validate identifier
+    if (!identifier || !validateIdentifier(identifier)) {
+      return NextResponse.json({ error: 'Valid identifier is required' }, { status: 400 })
+    }
+
+    // Validate file name
+    if (!fileName || !validateFileName(fileName)) {
+      return NextResponse.json({ error: 'Valid file name is required' }, { status: 400 })
     }
 
     // Always skip derivative files
@@ -74,12 +97,17 @@ export async function GET(
       return NextResponse.json({ error: 'Item not found' }, { status: 404 })
     }
 
-    // Get the file path
-    const filePath = path.join(itemPath, fileName)
+    // Sanitize file path to prevent directory traversal
+    const filePath = sanitizeFilePath(fileName, itemPath)
+    if (!filePath) {
+      log('Path traversal attempt detected:', fileName)
+      return NextResponse.json({ error: 'Invalid file path' }, { status: 400 })
+    }
+    
     log('File path:', filePath)
 
-    // Check if file exists and is within the item directory
-    if (!fs.existsSync(filePath) || !filePath.startsWith(itemPath)) {
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
       log('File not found:', filePath)
       return NextResponse.json({ error: 'File not found' }, { status: 404 })
     }

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readDownloads, writeDownloads, DownloadItem } from '@/lib/downloads'
+import { readDownloads, writeDownloads } from '@/lib/downloads'
+import type { DownloadItem, ApiResponse } from '@/types/api'
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ identifier: string }> }
-) {
+): Promise<NextResponse<ApiResponse>> {
   try {
     const resolvedParams = await params
     const { identifier } = resolvedParams
@@ -46,7 +47,7 @@ export async function DELETE(
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ identifier: string }> }
-) {
+): Promise<NextResponse<DownloadItem | ApiResponse>> {
   try {
     const resolvedParams = await params
     const { identifier } = resolvedParams

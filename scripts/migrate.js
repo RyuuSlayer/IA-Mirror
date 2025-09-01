@@ -16,8 +16,21 @@ const MEDIA_TYPE_FOLDERS = {
   'account': 'accounts'
 }
 
-// Get cache directory from environment or use default
-const cacheDir = process.env.CACHE_DIR || 'S:\\Internet Archive'
+// Read cache directory from config.json
+function getCacheDir() {
+  const configPath = path.join(__dirname, '..', 'config.json')
+  try {
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+      return config.storagePath || process.env.CACHE_DIR || path.join(__dirname, '..', 'cache')
+    }
+  } catch (error) {
+    debug('Error reading config:', error)
+  }
+  return process.env.CACHE_DIR || path.join(__dirname, '..', 'cache')
+}
+
+const cacheDir = getCacheDir()
 
 // Create cache directory if it doesn't exist
 if (!fs.existsSync(cacheDir)) {

@@ -3,6 +3,14 @@ import fs from 'fs'
 import path from 'path'
 import debug from 'debug'
 import { getConfig } from '@/lib/config'
+import { 
+  sanitizeFilePath, 
+  validateIdentifier, 
+  validateFileName,
+  checkRateLimit,
+  getCSRFTokenFromRequest
+} from '@/lib/security'
+import type { ItemMetadata, RawMetadata, ApiResponse } from '@/types/api'
 
 const log = debug('ia-mirror:metadata')
 
@@ -26,15 +34,24 @@ export const revalidate = 0
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ identifier: string }> }
-) {
+): Promise<NextResponse<ItemMetadata | ApiResponse>> {
   try {
+    // Rate limiting
+    const clientIP = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+    if (!checkRateLimit(`metadata:${clientIP}`, 60, 60000)) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded' },
+        { status: 429 }
+      )
+    }
+
     const params = await context.params
     const { identifier } = params
     
-    if (!identifier) {
-      log('No identifier provided')
+    if (!identifier || !validateIdentifier(identifier)) {
+      log('Invalid or missing identifier provided:', identifier)
       return NextResponse.json(
-        { error: 'Identifier is required' },
+        { error: 'Valid identifier is required' },
         { status: 400 }
       )
     }
@@ -66,22 +83,31 @@ export async function GET(
     }
 
     // Check if it's a download request
-    const url = new URL(request.url)
+    const url = new URL(request.url, `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host') || 'localhost:3000'}`)
     const download = url.searchParams.get('download')
     
     if (download) {
       try {
-        const downloadPath = path.join(itemPath, download)
-        log('Attempting to read file:', downloadPath)
-        
-        // Basic path traversal protection
-        if (!downloadPath.startsWith(itemPath)) {
-          log('Invalid file path detected:', downloadPath)
+        // Validate file name
+        if (!validateFileName(download)) {
+          log('Invalid file name:', download)
+          return NextResponse.json(
+            { error: 'Invalid file name' },
+            { status: 400 }
+          )
+        }
+
+        // Sanitize file path to prevent directory traversal
+        const downloadPath = sanitizeFilePath(download, itemPath)
+        if (!downloadPath) {
+          log('Path traversal attempt detected:', download)
           return NextResponse.json(
             { error: 'Invalid file path' },
             { status: 400 }
           )
         }
+        
+        log('Attempting to read file:', downloadPath)
         
         if (!fs.existsSync(downloadPath)) {
           log('File not found:', downloadPath)
@@ -119,7 +145,7 @@ export async function GET(
 
     // If not a download request, return metadata
     const metadataPath = path.join(itemPath, 'metadata.json')
-    let metadata: any = {}
+    let metadata: RawMetadata | Record<string, any> = {}
 
     console.log('Checking metadata for:', identifier)
     console.log('Metadata path:', metadataPath)
@@ -218,7 +244,7 @@ export async function GET(
     }
 
     // Return flattened metadata for the API response
-    return NextResponse.json({
+    const response: ItemMetadata = {
       identifier: metadata.metadata?.identifier || identifier,
       title: metadata.metadata?.title || identifier,
       mediatype: metadata.metadata?.mediatype || mediatype || 'texts',
@@ -233,7 +259,8 @@ export async function GET(
       downloads: metadata.metadata?.downloads || 0,
       files: metadata.files || [],
       thumbnailFile
-    })
+    }
+    return NextResponse.json(response)
 
   } catch (error) {
     log('Error:', error)

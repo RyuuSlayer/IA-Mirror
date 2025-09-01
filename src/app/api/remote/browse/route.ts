@@ -4,6 +4,7 @@ import { searchItems } from '@/lib/archive'
 import fs from 'fs'
 import path from 'path'
 import debug from 'debug'
+import type { BrowseResponse, SearchParams, ApiResponse } from '@/types/api'
 
 const log = debug('ia-mirror:api:remote:browse')
 const ignoredItemsPath = path.join(process.cwd(), 'ignored-items.json')
@@ -22,9 +23,9 @@ function loadIgnoredItems(): Set<string> {
   return new Set()
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse<BrowseResponse | ApiResponse>> {
   try {
-    const { searchParams } = new URL(request.url)
+    const { searchParams } = new URL(request.url, `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host') || 'localhost:3000'}`)
     const query = searchParams.get('q') || ''
     const mediatype = searchParams.get('mediatype') || ''
     const sort = searchParams.get('sort') || '-downloads'

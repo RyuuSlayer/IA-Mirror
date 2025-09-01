@@ -33,7 +33,10 @@ export const revalidate = 0
 // Get metadata for an item
 async function getMetadata(identifier: string): Promise<ItemMetadata> {
   try {
-    const response = await fetch(`http://localhost:3000/api/metadata/${identifier}`, {
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+      : 'http://localhost:3000'
+    const response = await fetch(`${baseUrl}/api/metadata/${identifier}`, {
       cache: 'no-store',
       next: { revalidate: 0 }
     })

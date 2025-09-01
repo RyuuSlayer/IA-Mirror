@@ -13,27 +13,10 @@ interface BrowseResultsProps {
   initialHideIgnored?: boolean
 }
 
-interface Item {
-  identifier: string
-  title: string
-  description?: string
-  mediatype?: string
-  creator?: string
-  date?: string
-  downloads?: number
-  collection?: string[]
-  downloaded?: boolean
-  ignored?: boolean
-  thumbnailUrl?: string
-}
+import type { SearchResult, BrowseResponse } from '@/types/api'
 
-interface SearchResponse {
-  items: Item[]
-  total: number
-  page: number
-  size: number
-  pages: number
-}
+type Item = SearchResult
+type SearchResponse = BrowseResponse
 
 const mediaTypes = [
   { value: '', label: 'All Media Types' },

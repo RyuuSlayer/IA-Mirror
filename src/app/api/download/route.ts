@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { spawn } from 'child_process'
 import path from 'path'
 import fs from 'fs'
-import { getConfig, readSettings, Settings } from '@/lib/config'
-import { readDownloads, writeDownloads, DownloadItem } from '@/lib/downloads'
+import { getConfig } from '@/lib/config'
+import { readDownloads, writeDownloads } from '@/lib/downloads'
+import { 
+  sanitizeInput, 
+  validateStringParam,
+  checkRateLimit
+} from '@/lib/security'
+import type { DownloadItem, DownloadRequest, ApiResponse } from '@/types/api'
 // Map of media types to folder names
 const MEDIA_TYPE_FOLDERS = {
   'texts': 'books',
@@ -185,7 +191,7 @@ function cleanStaleDownloads(downloads: DownloadItem[]): DownloadItem[] {
   })
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse<DownloadItem[] | ApiResponse>> {
   try {
     const config = await getConfig()
     const downloads = readDownloads()
@@ -217,10 +223,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse>> {
   try {
     const config = await getConfig()
-    const { identifier, title, file, action, isDerivative } = await request.json()
+    const body: DownloadRequest = await request.json()
+    const { identifier, title, file, action, isDerivative } = body
     const downloads = readDownloads()
 
     if (action === 'clear') {

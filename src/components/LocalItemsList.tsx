@@ -7,23 +7,10 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import BrowseFilters from './BrowseFilters'
 import ErrorBoundary from './ErrorBoundary'
 import debounce from 'lodash/debounce'
+import type { LocalItem, PaginatedResponse } from '@/types/api'
 
-interface Item {
-  identifier: string
-  title: string
-  description?: string
-  mediatype?: string
-  creator?: string
-  date?: string
-  collection?: string[]
-  downloadDate: string
-  thumbnailFile?: string
-}
-
-interface ItemsResponse {
-  items: Item[]
-  total: number
-}
+type Item = LocalItem
+type ItemsResponse = PaginatedResponse<LocalItem>
 
 export default function LocalItemsList() {
   const router = useRouter()

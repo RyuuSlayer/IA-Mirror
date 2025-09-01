@@ -1,5 +1,7 @@
 import fs from 'fs'
+import path from 'path'
 import { NextResponse } from 'next/server'
+import type { ApiResponse } from '@/types/api'
 
 export function formatDescription(text: string): string {
   if (!text) return '';

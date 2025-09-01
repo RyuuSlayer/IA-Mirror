@@ -1,25 +1,7 @@
 import debug from 'debug'
+import type { SearchParams, SearchResult } from '@/types/api'
 
 const log = debug('ia-mirror:lib:archive')
-
-interface SearchParams {
-  query: string
-  mediatype?: string
-  sort?: string
-  page?: number
-  size?: number
-}
-
-interface SearchResult {
-  identifier: string
-  title: string
-  description?: string
-  mediatype?: string
-  creator?: string
-  date?: string
-  downloads?: number
-  collection?: string[]
-}
 
 interface SearchResponse {
   items: SearchResult[]

@@ -3,16 +3,9 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import type { SearchResult } from '@/types/api'
 
-interface Item {
-  identifier: string
-  title: string
-  description?: string
-  mediatype?: string
-  creator?: string
-  date?: string
-  downloads?: number
-  collection?: string[]
+type Item = SearchResult & {
   downloaded?: boolean
   files?: Array<{
     name: string

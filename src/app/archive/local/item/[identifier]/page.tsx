@@ -3,10 +3,11 @@ import Image from 'next/image'
 import fs from 'fs'
 import path from 'path'
 import ItemThumbnail from '@/components/ItemThumbnail'
-
-const cacheDir = process.env.CACHE_DIR || 'C:\\archiveorg'
+import { getConfig } from '@/lib/config'
 
 async function getItemMetadata(identifier: string) {
+  const config = await getConfig()
+  const cacheDir = config.cacheDir
   const metadataPath = path.join(cacheDir, identifier, 'metadata.json')
   
   if (!fs.existsSync(metadataPath)) {

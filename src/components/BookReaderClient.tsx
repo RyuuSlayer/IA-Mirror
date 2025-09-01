@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import jQuery from 'jquery'
+import Link from 'next/link'
 
 // Make jQuery available globally for BookReader
 if (typeof window !== 'undefined') {
@@ -130,13 +131,15 @@ export default function BookReaderClient({ identifier, fileName, title }: BookRe
       } catch (error) {
         console.error('Failed to initialize BookReader:', error)
         
+        const fileExtension = fileName.split('.').pop()
+        
         // Show error message in container
         if (containerRef.current) {
           containerRef.current.innerHTML = `
             <div class="flex items-center justify-center h-full">
               <div class="text-center">
                 <div class="text-red-600 text-lg mb-2">Failed to load BookReader</div>
-                <div class="text-gray-600">File type: ${fileExtension}</div>
+                <div class="text-gray-600">File type: ${fileExtension?.toUpperCase() || 'Unknown'}</div>
                 <div class="text-gray-600">Error: ${error}</div>
                 <div class="mt-4">
                   <a 

@@ -1,27 +1,27 @@
-- Get the ebookreader working.
 - Add proper unit tests.
 - Get collection browsing to work.
 
-## Bug Fixes & Security Issues
+## Code Quality & Performance Improvements
 
-### Critical Issues
-- [x] Fix race condition in downloads page: handleClear() should wait for API completion before refreshing
-- [x] Add proper error handling for JSON.parse() calls in metadata parsing (localItems.ts, maintenance route)
-- [x] Fix path traversal vulnerability in download.js - implement proper path sanitization
+### High Priority
+- [ ] Replace console.log statements with proper logging system (found 100+ instances)
+- [x] Remove hardcoded localhost:3000 URLs and make them configurable
+- [x] Add proper TypeScript types for API responses and metadata structures
+- [ ] Implement proper error handling instead of generic try-catch blocks
+- [ ] Add loading states and better UX for long-running operations
 
 ### Medium Priority
-- [x] Fix memory leak in ItemCard.tsx: cleanup blob URLs and DOM elements on component unmount
-- [x] Add null checks before accessing object properties (item.downloads, blob.type, etc.)
-- [x] Implement proper input validation for parseInt() and Number() conversions
-- [x] Add radix parameter to parseInt() calls
+- [x] Extract hardcoded file paths (S:\Internet Archive, C:\archiveorg) to configuration
+- [ ] Implement proper caching strategy for metadata and API responses
+- [ ] Add input debouncing for search functionality
+- [ ] Optimize file reading operations (currently reading entire files into memory)
+- [ ] Add proper cleanup for file streams and resources
+- [ ] Implement retry logic for failed network requests
 
-### Minor Issues
-- [x] Add error boundaries for better component-level error handling
-- [x] Improve AbortController cleanup in BrowseResults.tsx
-- [x] Add user-facing error messages instead of console-only logging
-- [x] Enable TypeScript strict mode to catch more potential issues
-
-### Security Improvements
-- [] Sanitize file paths to prevent directory traversal attacks
-- [] Validate all user inputs and API parameters
-- [] Add proper CSRF protection for API endpoints
+### Low Priority
+- [ ] Add accessibility improvements (ARIA labels, keyboard navigation)
+- [ ] Implement proper pagination for large result sets
+- [ ] Add compression for API responses
+- [ ] Optimize bundle size and implement code splitting
+- [ ] Add proper documentation for API endpoints
+- [ ] Implement proper health checks for the application

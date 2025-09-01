@@ -1,22 +1,12 @@
 import fs from 'fs'
 import path from 'path'
+import debug from 'debug'
+import type { DownloadItem } from '@/types/api'
 import { readJsonFile } from './utils'
 
-const DOWNLOADS_FILE = path.join(process.cwd(), 'downloads.json')
+const log = debug('ia-mirror:lib:downloads')
 
-export interface DownloadItem {
-  identifier: string
-  title: string
-  status: 'queued' | 'downloading' | 'completed' | 'failed'
-  progress?: number
-  error?: string
-  startedAt?: string
-  completedAt?: string
-  pid?: number
-  mediatype?: string
-  file?: string
-  isDerivative?: boolean
-}
+const DOWNLOADS_FILE = path.join(process.cwd(), 'downloads.json')
 
 export function readDownloads(): DownloadItem[] {
   const downloads = readJsonFile(DOWNLOADS_FILE)

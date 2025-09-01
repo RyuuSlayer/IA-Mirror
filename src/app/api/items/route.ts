@@ -6,7 +6,7 @@ const log = debug('ia-mirror:api:items')
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const { searchParams } = new URL(request.url, `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host') || 'localhost:3000'}`)
     const search = searchParams.get('search') || searchParams.get('q') || ''
     const mediatype = searchParams.get('mediatype') || ''
     const sort = searchParams.get('sort') || '-downloads'

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { spawn } from 'child_process'
 import path from 'path'
 import { getConfig } from '@/lib/config'
-import { readDownloads, writeDownloads, DownloadItem } from '@/lib/downloads'
+import { readDownloads, writeDownloads } from '@/lib/downloads'
+import type { DownloadItem, ApiResponse } from '@/types/api'
 
 function updateDownloadStatus(identifier: string, updates: Partial<DownloadItem>) {
   const downloads = readDownloads()
@@ -65,7 +66,7 @@ async function startDownload(item: DownloadItem) {
   return downloadProcess
 }
 
-export async function GET() {
+export async function GET(): Promise<NextResponse<ApiResponse>> {
   try {
     const downloads = readDownloads()
     const queuedDownload = downloads.find(d => d.status === 'queued')

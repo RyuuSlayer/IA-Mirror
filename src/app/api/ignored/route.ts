@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { readJsonFile } from '@/lib/utils'
+import type { ApiResponse } from '@/types/api'
 
 const ignoredItemsPath = path.join(process.cwd(), 'ignored-items.json')
 
@@ -30,7 +32,7 @@ function saveIgnoredItems(ignoredItems: Set<string>) {
 }
 
 // GET - Get all ignored items
-export async function GET() {
+export async function GET(): Promise<NextResponse<string[] | ApiResponse>> {
   try {
     const ignoredItems = loadIgnoredItems()
     return NextResponse.json(Array.from(ignoredItems))
@@ -44,7 +46,7 @@ export async function GET() {
 }
 
 // POST - Add or remove ignored item
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse>> {
   try {
     const { identifier, action } = await request.json()
     

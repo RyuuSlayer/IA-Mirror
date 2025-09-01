@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { readDownloads, writeDownloads } from '@/lib/downloads'
 import { createErrorResponse } from '@/lib/utils'
-import { readDownloads, writeDownloads, DownloadItem } from '@/lib/downloads'
+import type { DownloadItem, ApiResponse } from '@/types/api'
 
-export async function POST() {
+export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse>> {
   try {
     const downloads = readDownloads()
     

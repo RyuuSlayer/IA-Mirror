@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
-import { getConfig } from '@/lib/config'
+import { getConfig, getBaseUrl } from '@/lib/config'
 import { readJsonFile } from '@/lib/utils'
+import type { MaintenanceRequest, MaintenanceResult, MaintenanceIssue, MetadataFile, ApiResponse } from '@/types/api'
 
 const MEDIA_TYPE_FOLDERS = {
   'texts': 'books',
@@ -18,14 +19,7 @@ const MEDIA_TYPE_FOLDERS = {
   'account': 'accounts'
 }
 
-interface MetadataFile {
-  name: string
-  source?: string
-  size?: number | string
-  original?: string
-  md5?: string
-  sha1?: string
-}
+
 
 function isDerivativeFile(file: MetadataFile): boolean {
   // Check metadata-based derivative detection
@@ -105,7 +99,8 @@ async function queueDownload(identifier: string, filename: string, isDerivative:
     console.log('Attempting to queue download:', { identifier, filename, isDerivative })
     const displayName = path.basename(filename)
     
-    const response = await fetch('http://localhost:3000/api/download', {
+    const baseUrl = getBaseUrl()
+    const response = await fetch(`${baseUrl}/api/download`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -146,7 +141,8 @@ function getItemPath(identifier: string, storagePath: string): string {
 
 async function getStoragePath(): Promise<string> {
   try {
-    const response = await fetch('http://localhost:3000/api/settings')
+    const baseUrl = getBaseUrl()
+    const response = await fetch(`${baseUrl}/api/settings`)
     if (!response.ok) {
       throw new Error('Failed to fetch settings')
     }
@@ -204,9 +200,10 @@ function verifyFile(filePath: string, file: MetadataFile, skipHashCheck: boolean
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse<MaintenanceResult | ApiResponse>> {
   try {
-    const { action, identifier, filename } = await request.json()
+    const body: MaintenanceRequest = await request.json()
+    const { action, identifier, filename } = body
     console.log('Maintenance API called with:', { action, identifier, filename })
     
     const storagePath = await getStoragePath()
@@ -218,7 +215,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const results: any = { success: true }
+    const results: MaintenanceResult = { success: true, message: 'Maintenance operation completed' }
 
     if (action === 'refresh-metadata') {
       // Refresh metadata for all items
@@ -232,7 +229,8 @@ export async function POST(request: NextRequest) {
           if (!fs.statSync(itemPath).isDirectory()) continue
 
           try {
-            const response = await fetch(`http://localhost:3000/api/metadata/${item}`, {
+            const baseUrl = getBaseUrl()
+            const response = await fetch(`${baseUrl}/api/metadata/${item}`, {
               method: 'GET',
               headers: { 'force-refresh': 'true' }
             })
@@ -251,7 +249,7 @@ export async function POST(request: NextRequest) {
       const config = await getConfig()
       const skipHashCheck = config.skipHashCheck
 
-      const issues: any[] = []
+      const issues: MaintenanceIssue[] = []
       
       // Check all items
       for (const folder of Object.values(MEDIA_TYPE_FOLDERS)) {
@@ -284,6 +282,9 @@ export async function POST(request: NextRequest) {
               const existingFilename = findFileInDirectory(itemPath, file.name)
               if (!existingFilename) {
                 issues.push({ 
+                  identifier: item,
+                  type: 'missing-file',
+                  description: `File ${file.name} is missing`,
                   item, 
                   file: file.name,
                   error: 'File missing',
@@ -298,6 +299,9 @@ export async function POST(request: NextRequest) {
               const verification = verifyFile(filePath, file, skipHashCheck)
               if (!verification.valid) {
                 issues.push({
+                  identifier: item,
+                  type: 'corrupted-file',
+                  description: `File ${file.name} failed verification`,
                   item,
                   file: file.name,
                   error: verification.error,
@@ -324,7 +328,8 @@ export async function POST(request: NextRequest) {
       const settings = readSettings()
 
       // Queue all mismatched files for redownload
-      const response = await fetch('http://localhost:3000/api/maintenance', {
+      const baseUrl = getBaseUrl()
+      const response = await fetch(`${baseUrl}/api/maintenance`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -402,8 +407,9 @@ export async function POST(request: NextRequest) {
       }
 
       // For non-metadata files, proceed with normal metadata check
-      console.log('Fetching metadata from:', `http://localhost:3000/api/metadata/${identifier}`)
-      const metadataResponse = await fetch(`http://localhost:3000/api/metadata/${identifier}`)
+      const baseUrl = getBaseUrl()
+      console.log('Fetching metadata from:', `${baseUrl}/api/metadata/${identifier}`)
+      const metadataResponse = await fetch(`${baseUrl}/api/metadata/${identifier}`)
       if (!metadataResponse.ok) {
         console.error('Failed to fetch metadata:', await metadataResponse.text())
         return NextResponse.json(
@@ -450,7 +456,7 @@ export async function POST(request: NextRequest) {
       }
     }
     else if (action === 'find-derivatives') {
-      const issues: any[] = []
+      const issues: MaintenanceIssue[] = []
       
       // Check all items
       for (const folder of Object.values(MEDIA_TYPE_FOLDERS)) {
@@ -479,10 +485,13 @@ export async function POST(request: NextRequest) {
                 const existingFilename = findFileInDirectory(itemPath, file.name)
                 if (existingFilename) {
                   issues.push({ 
+                    identifier: item,
+                    type: 'missing-file',
+                    description: `Derivative file ${file.name} found`,
                     item: path.join(folder, item), // Include media type folder in path
                     file: file.name,
                     size: fs.statSync(path.join(itemPath, existingFilename)).size,
-                    original: file.original || 'Unknown'
+                    isDerivative: true
                   })
                 }
               }
@@ -501,7 +510,8 @@ export async function POST(request: NextRequest) {
     }
     else if (action === 'remove-derivatives') {
       // Get all derivative files from verify-files action
-      const response = await fetch('http://localhost:3000/api/maintenance', {
+      const baseUrl = getBaseUrl()
+      const response = await fetch(`${baseUrl}/api/maintenance`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
