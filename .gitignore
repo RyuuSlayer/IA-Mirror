@@ -41,3 +41,5 @@ Thumbs.db
 downloads.json
 settings.json
 ignored-items.json
+config.json
+config.json.backup

@@ -4,6 +4,28 @@ import { readJsonFile } from './utils'
 
 const CONFIG_FILE = path.join(process.cwd(), 'config.json')
 
+/**
+ * Ensures that a default config.json file exists
+ * Creates one with sensible defaults if it doesn't exist
+ */
+function ensureConfigExists(): void {
+  if (!fs.existsSync(CONFIG_FILE)) {
+    const defaultConfig = {
+      storagePath: path.join(process.cwd(), 'cache'),
+      maxConcurrentDownloads: 3,
+      skipHashCheck: false,
+      baseUrl: 'http://localhost:3000'
+    }
+    
+    try {
+      fs.writeFileSync(CONFIG_FILE, JSON.stringify(defaultConfig, null, 2))
+      console.log('Created default config.json with sensible defaults')
+    } catch (error) {
+      console.warn('Could not create default config.json:', error)
+    }
+  }
+}
+
 interface Config {
   cacheDir: string
   maxConcurrentDownloads: number
@@ -19,11 +41,14 @@ export interface Settings {
 }
 
 export function readSettings(): Settings {
+  // Ensure config file exists with defaults
+  ensureConfigExists()
+  
   const settings = readJsonFile(CONFIG_FILE)
   
   if (settings) {
     return {
-      storagePath: settings.storagePath || '',
+      storagePath: settings.storagePath || path.join(process.cwd(), 'cache'),
       maxConcurrentDownloads: settings.maxConcurrentDownloads || 3,
       skipHashCheck: settings.skipHashCheck || false,
       baseUrl: settings.baseUrl || 'http://localhost:3000'
@@ -31,7 +56,7 @@ export function readSettings(): Settings {
   }
   
   return { 
-    storagePath: '',
+    storagePath: path.join(process.cwd(), 'cache'),
     maxConcurrentDownloads: 3,
     skipHashCheck: false,
     baseUrl: 'http://localhost:3000'
