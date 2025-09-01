@@ -177,11 +177,16 @@ function verifyFile(filePath: string, file: MetadataFile, skipHashCheck: boolean
       return { valid: true }
     }
 
+    // When hash checking is enabled, we need at least one hash to verify
+    if (!file.md5 && !file.sha1) {
+      return { valid: false, error: 'No hash available for verification' }
+    }
+
     // If MD5 is available, check it first (faster than SHA1)
     if (file.md5) {
       const md5 = calculateFileHash(filePath, 'md5')
       if (md5 !== file.md5) {
-        return { valid: false, error: 'MD5 mismatch' }
+        return { valid: false, error: `MD5 mismatch (expected: ${file.md5}, actual: ${md5})` }
       }
     }
 
@@ -189,7 +194,7 @@ function verifyFile(filePath: string, file: MetadataFile, skipHashCheck: boolean
     if (file.sha1) {
       const sha1 = calculateFileHash(filePath, 'sha1')
       if (sha1 !== file.sha1) {
-        return { valid: false, error: 'SHA1 mismatch' }
+        return { valid: false, error: `SHA1 mismatch (expected: ${file.sha1}, actual: ${sha1})` }
       }
     }
 
@@ -242,10 +247,9 @@ export async function POST(request: NextRequest) {
       results.message = 'Metadata refresh completed'
     }
     else if (action === 'verify-files') {
-      // Get settings to check skipDerivativeFiles and skipHashCheck
+      // Get settings to check skipHashCheck
       const config = await getConfig()
       const skipHashCheck = config.skipHashCheck
-      const skipDerivativeFiles = config.skipDerivativeFiles
 
       const issues: any[] = []
       
@@ -272,8 +276,8 @@ export async function POST(request: NextRequest) {
             const files = (metadata.files || []) as MetadataFile[]
 
             for (const file of files) {
-              // Skip derivative files if the setting is enabled
-              if (skipDerivativeFiles && isDerivativeFile(file)) {
+              // Always skip derivative files
+              if (isDerivativeFile(file)) {
                 continue
               }
 
@@ -340,9 +344,10 @@ export async function POST(request: NextRequest) {
       for (const issue of issues) {
         if (issue.file) {
           // Skip derivative files if the setting is enabled
-          if (settings.skipDerivativeFiles && issue.isDerivative) {
-            continue
-          }
+          // Always skip derivative files
+        if (issue.isDerivative) {
+          continue
+        }
 
           const success = await queueDownload(issue.item, issue.file, issue.isDerivative)
           if (success) {

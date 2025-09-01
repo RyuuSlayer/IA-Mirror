@@ -42,17 +42,13 @@ export async function GET(
       return NextResponse.json({ error: 'No file specified' }, { status: 400 })
     }
 
-    // Get config to check skipDerivativeFiles setting
-    const config = await getConfig()
-    const skipDerivativeFiles = config.skipDerivativeFiles || false
-
-    // Check if this is a derivative file that should be skipped
-    if (skipDerivativeFiles && fileMetadata) {
+    // Always skip derivative files
+    if (fileMetadata) {
       try {
         const metadata = JSON.parse(fileMetadata)
         if (isDerivativeFile(metadata)) {
           return NextResponse.json(
-            { error: 'Skipping derivative file based on settings' },
+            { error: 'Skipping derivative file' },
             { status: 400 }
           )
         }

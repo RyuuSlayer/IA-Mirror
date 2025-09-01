@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import ErrorBoundary from './ErrorBoundary'
 
 interface BrowseResultsProps {
   initialQuery?: string
@@ -71,11 +72,18 @@ export default function BrowseResults({
   const [viewMode, setViewMode] = useState<'grid' | 'row'>('grid')
   const abortControllerRef = useRef<AbortController | null>(null)
 
+  // Cleanup function to properly abort requests
+  const cleanupAbortController = () => {
+    if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+      abortControllerRef.current.abort()
+    }
+    abortControllerRef.current = null
+  }
+
   useEffect(() => {
     const fetchResults = async () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
+      // Clean up any existing request
+      cleanupAbortController()
 
       const abortController = new AbortController()
       abortControllerRef.current = abortController
@@ -99,7 +107,8 @@ export default function BrowseResults({
         })
         
         if (!response.ok) {
-          throw new Error('Failed to fetch results')
+          const errorText = await response.text()
+          throw new Error(`Failed to fetch results: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`)
         }
 
         const data: SearchResponse = await response.json()
@@ -112,7 +121,8 @@ export default function BrowseResults({
         if (error instanceof Error && error.name === 'AbortError') {
           return
         }
-        setError('Failed to fetch results')
+        const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
+        setError(`Unable to load search results: ${errorMessage}`)
         console.error('Search error:', error)
       } finally {
         if (!abortController.signal.aborted) {
@@ -123,11 +133,7 @@ export default function BrowseResults({
 
     fetchResults()
 
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-    }
+    return cleanupAbortController
   }, [query, mediatype, sort, page, pageSize, hideDownloaded, hideIgnored])
 
   const handleSearch = (e: React.FormEvent) => {
@@ -211,7 +217,9 @@ export default function BrowseResults({
         })
       }, 2000)
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Download failed'
       console.error('Download error:', error)
+      setError(`Failed to download "${title}": ${errorMessage}`)
       setDownloadingItems(prev => {
         const next = new Set(prev)
         next.delete(identifier)
@@ -265,8 +273,35 @@ export default function BrowseResults({
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold mb-6">Browse Internet Archive</h1>
+    <ErrorBoundary>
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <h1 className="text-2xl font-bold mb-6">Browse Internet Archive</h1>
+
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-medium text-red-800">Error</h3>
+                <p className="mt-1 text-sm text-red-700">{error}</p>
+              </div>
+              <div className="ml-3">
+                <button
+                  type="button"
+                  className="bg-red-100 px-3 py-1 rounded-md text-sm font-medium text-red-800 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  onClick={() => setError(null)}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       {/* Search and Filters */}
       <div className="mb-8 space-y-4">
@@ -422,41 +457,52 @@ export default function BrowseResults({
                     {item.downloads?.toLocaleString()} downloads
                   </p>
                   <div className="flex gap-2">
-                    {!item.downloaded ? (
-                      <button
-                        onClick={() => handleDownload(item.identifier, item.title, item.mediatype)}
-                        disabled={downloadingItems.has(item.identifier)}
-                        className={`px-3 py-1 text-white text-sm rounded transition-colors ${
-                          downloadingItems.has(item.identifier)
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : 'bg-[#428BCA] hover:bg-[#357EBD]'
-                        }`}
+                    {item.mediatype === 'collection' ? (
+                      <Link
+                        href={`/archive/remote/browse?q=collection:${item.identifier}`}
+                        className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 transition-colors"
                       >
-                        {downloadingItems.has(item.identifier) ? 'Adding...' : 'Download'}
-                      </button>
+                        Browse Collection
+                      </Link>
                     ) : (
-                      <span className="px-3 py-1 bg-green-500 text-white text-sm rounded">
-                        Downloaded
-                      </span>
+                      <>
+                        {!item.downloaded ? (
+                          <button
+                            onClick={() => handleDownload(item.identifier, item.title, item.mediatype)}
+                            disabled={downloadingItems.has(item.identifier)}
+                            className={`px-3 py-1 text-white text-sm rounded transition-colors ${
+                              downloadingItems.has(item.identifier)
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-[#428BCA] hover:bg-[#357EBD]'
+                            }`}
+                          >
+                            {downloadingItems.has(item.identifier) ? 'Adding...' : 'Download'}
+                          </button>
+                        ) : (
+                          <span className="px-3 py-1 bg-green-500 text-white text-sm rounded">
+                            Downloaded
+                          </span>
+                        )}
+                        <button
+                          onClick={() => handleIgnoreItem(item.identifier, item.ignored || false)}
+                          disabled={ignoringItems.has(item.identifier)}
+                          className={`px-3 py-1 text-sm rounded transition-colors ${
+                            ignoringItems.has(item.identifier)
+                              ? 'bg-gray-400 text-white cursor-not-allowed'
+                              : item.ignored
+                              ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          }`}
+                        >
+                          {ignoringItems.has(item.identifier) 
+                            ? 'Updating...' 
+                            : item.ignored 
+                            ? 'Unignore' 
+                            : 'Ignore'
+                          }
+                        </button>
+                      </>
                     )}
-                    <button
-                      onClick={() => handleIgnoreItem(item.identifier, item.ignored || false)}
-                      disabled={ignoringItems.has(item.identifier)}
-                      className={`px-3 py-1 text-sm rounded transition-colors ${
-                        ignoringItems.has(item.identifier)
-                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                          : item.ignored
-                          ? 'bg-yellow-500 text-white hover:bg-yellow-600'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                    >
-                      {ignoringItems.has(item.identifier) 
-                        ? 'Updating...' 
-                        : item.ignored 
-                        ? 'Unignore' 
-                        : 'Ignore'
-                      }
-                    </button>
                   </div>
                 </div>
               </div>
@@ -502,41 +548,52 @@ export default function BrowseResults({
                     )}
                   </div>
                   <div className="flex-shrink-0 flex gap-2">
-                    <button
-                      onClick={() => handleDownload(item.identifier, item.title, item.mediatype)}
-                      disabled={downloadingItems.has(item.identifier) || item.downloaded}
-                      className={`px-3 py-1 rounded text-sm ${
-                        item.downloaded
-                          ? 'bg-green-100 text-green-800'
-                          : downloadingItems.has(item.identifier)
-                          ? 'bg-gray-100 text-gray-600 cursor-not-allowed'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
-                      }`}
-                    >
-                      {item.downloaded 
-                        ? 'Downloaded' 
-                        : downloadingItems.has(item.identifier)
-                        ? 'Adding...'
-                        : 'Download'}
-                    </button>
-                    <button
-                      onClick={() => handleIgnoreItem(item.identifier, item.ignored || false)}
-                      disabled={ignoringItems.has(item.identifier)}
-                      className={`px-3 py-1 text-sm rounded transition-colors ${
-                        ignoringItems.has(item.identifier)
-                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                          : item.ignored
-                          ? 'bg-yellow-500 text-white hover:bg-yellow-600'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                    >
-                      {ignoringItems.has(item.identifier) 
-                        ? 'Updating...' 
-                        : item.ignored 
-                        ? 'Unignore' 
-                        : 'Ignore'
-                      }
-                    </button>
+                    {item.mediatype === 'collection' ? (
+                      <Link
+                        href={`/archive/remote/browse?q=collection:${item.identifier}`}
+                        className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 transition-colors"
+                      >
+                        Browse Collection
+                      </Link>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleDownload(item.identifier, item.title, item.mediatype)}
+                          disabled={downloadingItems.has(item.identifier) || item.downloaded}
+                          className={`px-3 py-1 rounded text-sm ${
+                            item.downloaded
+                              ? 'bg-green-100 text-green-800'
+                              : downloadingItems.has(item.identifier)
+                              ? 'bg-gray-100 text-gray-600 cursor-not-allowed'
+                              : 'bg-blue-600 text-white hover:bg-blue-700'
+                          }`}
+                        >
+                          {item.downloaded 
+                            ? 'Downloaded' 
+                            : downloadingItems.has(item.identifier)
+                            ? 'Adding...'
+                            : 'Download'}
+                        </button>
+                        <button
+                          onClick={() => handleIgnoreItem(item.identifier, item.ignored || false)}
+                          disabled={ignoringItems.has(item.identifier)}
+                          className={`px-3 py-1 text-sm rounded transition-colors ${
+                            ignoringItems.has(item.identifier)
+                              ? 'bg-gray-400 text-white cursor-not-allowed'
+                              : item.ignored
+                              ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          }`}
+                        >
+                          {ignoringItems.has(item.identifier) 
+                            ? 'Updating...' 
+                            : item.ignored 
+                            ? 'Unignore' 
+                            : 'Ignore'
+                          }
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-3">
@@ -614,6 +671,7 @@ export default function BrowseResults({
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   )
 }

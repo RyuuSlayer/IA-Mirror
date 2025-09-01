@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import './bookreader.css'
 import Navbar from '@/components/Navbar'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 export const metadata: Metadata = {
   title: 'Internet Archive Mirror',
@@ -20,7 +22,9 @@ export default function RootLayout({
       <body className="min-h-screen flex flex-col bg-[#FAFAFA]">
         <Navbar />
         <main className="flex-1">
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </main>
         <footer className="bg-[#2C2C2C] text-white py-6">
           <div className="max-w-7xl mx-auto px-4">

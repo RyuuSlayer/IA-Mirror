@@ -13,7 +13,7 @@ function loadConfig() {
   } catch (error) {
     console.warn('Could not load config, using defaults:', error.message)
   }
-  return { skipDerivativeFiles: false }
+  return {}
 }
 
 // Check if a file is a derivative
@@ -274,10 +274,6 @@ async function downloadItem() {
     } else {
       // Download all files if no specific file is specified
       if (metadata.files) {
-        // Load config to check derivative file settings
-        const config = loadConfig()
-        const skipDerivativeFiles = config.skipDerivativeFiles || false
-        
         for (const file of metadata.files) {
           let sanitizedFileName, cleanFileName, fileUrl, filePath
           
@@ -292,12 +288,10 @@ async function downloadItem() {
             continue
           }
           
-          // Skip derivative files if the setting is enabled
-          if (skipDerivativeFiles) {
-            if (isDerivativeFromMetadata(file) || isDerivativeFile(file.name)) {
-              console.log(`Skipping derivative file: ${cleanFileName}`)
-              continue
-            }
+          // Always skip derivative files
+          if (isDerivativeFromMetadata(file) || isDerivativeFile(file.name)) {
+            console.log(`Skipping derivative file: ${cleanFileName}`)
+            continue
           }
           
           // Create subdirectories if needed

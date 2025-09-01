@@ -54,8 +54,7 @@ A Next.js application that allows you to browse and download content from the In
    ```json
    {
      "cacheDir": "path/to/storage",
-     "maxConcurrentDownloads": 3,
-     "skipDerivativeFiles": true
+     "maxConcurrentDownloads": 3
    }
    ```
 

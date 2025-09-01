@@ -39,11 +39,20 @@ export async function searchItems({
     
     // Add main query if not empty
     if (query.trim()) {
-      // Escape special characters and wrap in quotes if contains spaces
-      const processedQuery = query.trim().includes(' ') 
-        ? `"${query.trim().replace(/["\\]/g, '\\$&')}"` 
-        : query.trim()
-      searchQuery.push(processedQuery)
+      const trimmedQuery = query.trim()
+      // Check if this is a field-specific query (contains colon)
+      const isFieldQuery = /^\w+:/.test(trimmedQuery)
+      
+      if (isFieldQuery) {
+        // Don't quote field-specific queries like "collection:identifier"
+        searchQuery.push(trimmedQuery)
+      } else {
+        // Escape special characters and wrap in quotes if contains spaces
+        const processedQuery = trimmedQuery.includes(' ') 
+          ? `"${trimmedQuery.replace(/["\\]/g, '\\$&')}"` 
+          : trimmedQuery
+        searchQuery.push(processedQuery)
+      }
     }
     
     // Add mediatype filter if specified and not empty

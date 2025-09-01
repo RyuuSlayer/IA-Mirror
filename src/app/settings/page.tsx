@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 interface Settings {
   storagePath: string
   maxConcurrentDownloads: number
-  skipDerivativeFiles: boolean
   skipHashCheck: boolean
 }
 
@@ -27,7 +27,6 @@ interface MaintenanceResult {
 const DEFAULT_SETTINGS: Settings = {
   storagePath: '',
   maxConcurrentDownloads: 3,
-  skipDerivativeFiles: false,
   skipHashCheck: false
 }
 
@@ -58,7 +57,6 @@ export default function SettingsPage() {
         setSettings({
           storagePath: data.storagePath || '',
           maxConcurrentDownloads: data.maxConcurrentDownloads || 3,
-          skipDerivativeFiles: data.skipDerivativeFiles || false,
           skipHashCheck: data.skipHashCheck || false
         })
       }
@@ -198,7 +196,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-[#FAFAFA]">
       <main className="max-w-7xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-[#2C2C2C] mb-8">Settings</h1>
 
@@ -242,19 +241,6 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="skipDerivativeFiles"
-                      checked={settings.skipDerivativeFiles}
-                      onChange={(e) => setSettings({ ...settings, skipDerivativeFiles: e.target.checked })}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="skipDerivativeFiles" className="ml-2 block text-sm text-gray-700">
-                      Skip Derivative Files
-                    </label>
-                  </div>
-
                   <div className="flex items-center">
                     <input
                       type="checkbox"
@@ -395,7 +381,8 @@ export default function SettingsPage() {
             </div>
           </section>
         </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </ErrorBoundary>
   )
 }

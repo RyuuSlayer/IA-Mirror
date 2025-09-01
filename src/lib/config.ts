@@ -7,14 +7,12 @@ const CONFIG_FILE = path.join(process.cwd(), 'config.json')
 interface Config {
   cacheDir: string
   maxConcurrentDownloads: number
-  skipDerivativeFiles: boolean
   skipHashCheck: boolean
 }
 
 export interface Settings {
   storagePath: string
   maxConcurrentDownloads: number
-  skipDerivativeFiles: boolean
   skipHashCheck: boolean
 }
 
@@ -25,7 +23,6 @@ export function readSettings(): Settings {
     return {
       storagePath: settings.storagePath || '',
       maxConcurrentDownloads: settings.maxConcurrentDownloads || 3,
-      skipDerivativeFiles: settings.skipDerivativeFiles || false,
       skipHashCheck: settings.skipHashCheck || false
     }
   }
@@ -33,7 +30,6 @@ export function readSettings(): Settings {
   return { 
     storagePath: '',
     maxConcurrentDownloads: 3,
-    skipDerivativeFiles: false,
     skipHashCheck: false
   }
 }
@@ -64,7 +60,6 @@ export async function getConfig(): Promise<Config> {
       return {
         cacheDir: 'C:\\archiveorg',
         maxConcurrentDownloads: settings.maxConcurrentDownloads,
-        skipDerivativeFiles: settings.skipDerivativeFiles,
         skipHashCheck: settings.skipHashCheck
       }
     }
@@ -73,7 +68,6 @@ export async function getConfig(): Promise<Config> {
   return {
     cacheDir,
     maxConcurrentDownloads: settings.maxConcurrentDownloads,
-    skipDerivativeFiles: settings.skipDerivativeFiles,
     skipHashCheck: settings.skipHashCheck
   }
 }

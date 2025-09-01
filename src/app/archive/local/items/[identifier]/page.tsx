@@ -3,6 +3,7 @@ import { Metadata } from 'next'
 import Image from 'next/image'
 import { formatDescriptionForHTML } from '@/lib/utils'
 import ItemThumbnail from '@/components/ItemThumbnail'
+import LocalItemReader from '@/components/LocalItemReader'
 
 interface ItemMetadata {
   identifier: string
@@ -31,19 +32,27 @@ export const revalidate = 0
 
 // Get metadata for an item
 async function getMetadata(identifier: string): Promise<ItemMetadata> {
-  const response = await fetch(`http://localhost:3000/api/metadata/${identifier}`, {
-    cache: 'no-store',
-    next: { revalidate: 0 }
-  })
+  try {
+    const response = await fetch(`http://localhost:3000/api/metadata/${identifier}`, {
+      cache: 'no-store',
+      next: { revalidate: 0 }
+    })
 
-  if (!response.ok) {
-    if (response.status === 404) {
-      notFound()
+    if (!response.ok) {
+      if (response.status === 404) {
+        notFound()
+      }
+      const errorText = await response.text()
+      throw new Error(`Failed to fetch metadata for ${identifier}: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`)
     }
-    throw new Error('Failed to fetch item metadata')
-  }
 
-  return response.json()
+    return response.json()
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('ECONNREFUSED')) {
+      throw new Error(`Unable to connect to local server. Please ensure the application is running.`)
+    }
+    throw error
+  }
 }
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
@@ -165,36 +174,61 @@ export default async function ItemPage(props: Props) {
                 <section className="bg-white rounded-lg shadow-sm p-6">
                   <h2 className="text-xl font-semibold mb-4">Available Files</h2>
                   <div className="space-y-2">
-                    {metadata.files.map((file, index) => (
-                      <a
-                        key={index}
-                        href={`/api/metadata/${identifier}?download=${encodeURIComponent(file.name)}`}
-                        className="block p-4 rounded-lg border border-gray-200 hover:border-blue-500 hover:shadow-sm transition-all"
-                        download
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="min-w-0">
-                            <div className="text-blue-600 font-medium truncate">
-                              {file.name}
+                    {metadata.files.map((file, index) => {
+                      // Check if file is an ebook format
+                      const isEbook = file.name.toLowerCase().match(/\.(pdf|epub|djvu|mobi|azw|azw3|txt|html|htm)$/i)
+                      
+                      return (
+                        <div key={index} className="p-4 rounded-lg border border-gray-200 hover:border-blue-500 hover:shadow-sm transition-all">
+                          <div className="flex items-center justify-between">
+                            <div className="min-w-0 flex-grow">
+                              <div className="text-blue-600 font-medium truncate">
+                                {file.name}
+                              </div>
+                              <div className="text-sm text-gray-500 flex items-center gap-2">
+                                {file.size && (
+                                  <span>{(file.size / (1024 * 1024)).toFixed(1)} MB</span>
+                                )}
+                                {file.format && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{file.format}</span>
+                                  </>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-sm text-gray-500 flex items-center gap-2">
-                              {file.size && (
-                                <span>{(file.size / (1024 * 1024)).toFixed(1)} MB</span>
+                            <div className="flex items-center gap-2">
+                              {isEbook && (
+                                <LocalItemReader
+                                  identifier={identifier}
+                                  fileName={file.name}
+                                  title={metadata.title}
+                                >
+                                  <div
+                                    className="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded transition-colors"
+                                    title="Read as eBook"
+                                  >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                    </svg>
+                                  </div>
+                                </LocalItemReader>
                               )}
-                              {file.format && (
-                                <>
-                                  <span>•</span>
-                                  <span>{file.format}</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
-                        </div>
-                      </a>
-                    ))}
+                              <a
+                                href={`/api/metadata/${identifier}?download=${encodeURIComponent(file.name)}`}
+                                className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                                download
+                                title="Download file"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                 </svg>
+                               </a>
+                             </div>
+                           </div>
+                         </div>
+                       )
+                      })}
                   </div>
                 </section>
               )}

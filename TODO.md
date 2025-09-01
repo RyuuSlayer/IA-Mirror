@@ -1,6 +1,6 @@
 - Get the ebookreader working.
-- Local Library view needs to use local images.
-- Add propper unit tests.
+- Add proper unit tests.
+- Get collection browsing to work.
 
 ## Bug Fixes & Security Issues
 
@@ -16,10 +16,10 @@
 - [x] Add radix parameter to parseInt() calls
 
 ### Minor Issues
-- [] Add error boundaries for better component-level error handling
-- [] Improve AbortController cleanup in BrowseResults.tsx
-- [] Add user-facing error messages instead of console-only logging
-- [] Enable TypeScript strict mode to catch more potential issues
+- [x] Add error boundaries for better component-level error handling
+- [x] Improve AbortController cleanup in BrowseResults.tsx
+- [x] Add user-facing error messages instead of console-only logging
+- [x] Enable TypeScript strict mode to catch more potential issues
 
 ### Security Improvements
 - [] Sanitize file paths to prevent directory traversal attacks

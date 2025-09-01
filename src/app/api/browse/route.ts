@@ -41,9 +41,7 @@ export async function GET(request: NextRequest) {
   const page = Math.max(1, parseInt(pageParam, 10) || 1)
   const size = Math.max(1, Math.min(100, parseInt(sizeParam, 10) || 20))
 
-    // Get config to check skipDerivativeFiles setting
-    const config = await getConfig()
-    const skipDerivativeFiles = config.skipDerivativeFiles || false
+    // Always skip derivative files
 
     // If no query, return local items
     if (!query) {

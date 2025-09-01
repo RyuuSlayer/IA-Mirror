@@ -12,7 +12,6 @@ export async function GET() {
     return NextResponse.json({
       storagePath: settings.storagePath || '',
       maxConcurrentDownloads: settings.maxConcurrentDownloads || 3,
-      skipDerivativeFiles: settings.skipDerivativeFiles || false,
       skipHashCheck: settings.skipHashCheck || false
     })
   } catch (error) {
@@ -25,7 +24,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { storagePath, maxConcurrentDownloads, skipDerivativeFiles, skipHashCheck } = await request.json()
+    const { storagePath, maxConcurrentDownloads, skipHashCheck } = await request.json()
+    console.log('Settings API received:', { storagePath, maxConcurrentDownloads, skipHashCheck })
     
     // Validate settings
     if (storagePath === undefined) {
@@ -49,11 +49,12 @@ export async function POST(request: NextRequest) {
     const settings: Settings = {
       storagePath,
       maxConcurrentDownloads: maxConcurrentDownloads || 3,
-      skipDerivativeFiles: skipDerivativeFiles || false,
-      skipHashCheck: skipHashCheck || false
+      skipHashCheck: skipHashCheck !== undefined ? skipHashCheck : false
     }
+    console.log('Settings object to save:', settings)
 
     const success = writeSettings(settings)
+    console.log('Write settings result:', success)
 
     if (!success) {
       return createErrorResponse('Failed to save settings', 500)

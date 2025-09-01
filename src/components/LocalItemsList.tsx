@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useSearchParams, useRouter } from 'next/navigation'
 import BrowseFilters from './BrowseFilters'
+import ErrorBoundary from './ErrorBoundary'
 import debounce from 'lodash/debounce'
 
 interface Item {
@@ -57,14 +58,16 @@ export default function LocalItemsList() {
 
         const response = await fetch(`/api/items?${params.toString()}`)
         if (!response.ok) {
-          throw new Error('Failed to fetch local items')
+          const errorText = await response.text()
+          throw new Error(`Failed to fetch local items: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`)
         }
         const data: ItemsResponse = await response.json()
         setItems(data.items)
         setTotal(data.total)
       } catch (error) {
         console.error('Error fetching local items:', error)
-        setError(error instanceof Error ? error.message : 'Failed to fetch local items')
+        const errorMessage = error instanceof Error ? error.message : 'Failed to fetch local items'
+        setError(`Unable to load local items: ${errorMessage}`)
       } finally {
         setLoading(false)
       }
@@ -133,7 +136,8 @@ export default function LocalItemsList() {
   }
 
   return (
-    <div className="browse-results">
+    <ErrorBoundary>
+      <div className="browse-results">
       <BrowseFilters
         query={currentSearch}
         mediatype={currentMediaType}
@@ -357,6 +361,7 @@ export default function LocalItemsList() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   )
 }
