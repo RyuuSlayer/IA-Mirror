@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const pageSizeParam = searchParams.get('pageSize') || '20'
   
   const page = Math.max(1, parseInt(pageParam, 10) || 1)
-  const pageSize = Math.max(1, Math.min(100, parseInt(pageSizeParam, 10) || 20))
+  const pageSize = Math.max(1, Math.min(500, parseInt(pageSizeParam, 10) || 20))
     const showAll = searchParams.get('showAll') === 'true'
 
     // Get items with search, sort, and pagination

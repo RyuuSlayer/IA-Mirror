@@ -5,10 +5,10 @@ import fs from 'fs'
 import path from 'path'
 import debug from 'debug'
 import { readJsonFile } from '@/lib/utils'
-import { log } from '@/lib/logger'
+import { log as logger } from '@/lib/logger'
 import type { BrowseResponse, SearchParams, ApiResponse } from '@/types/api'
 
-const log = debug('ia-mirror:api:remote:browse')
+const debugLog = debug('ia-mirror:api:remote:browse')
 const ignoredItemsPath = path.join(process.cwd(), 'ignored-items.json')
 
 // Load ignored items from file
@@ -19,7 +19,7 @@ function loadIgnoredItems(): Set<string> {
       return new Set(items)
     }
   } catch (error) {
-    log.error('Error loading ignored items', 'remote-browse-api', { error: error.message }, error)
+    logger.error('Error loading ignored items', 'remote-browse-api', { error: error.message }, error)
   }
   return new Set()
 }
@@ -36,7 +36,46 @@ export async function GET(request: NextRequest): Promise<NextResponse<BrowseResp
   const sizeParam = searchParams.get('size') || '20'
   
   const page = Math.max(1, parseInt(pageParam, 10) || 1)
-  const size = Math.max(1, Math.min(100, parseInt(sizeParam, 10) || 20))
+  const size = Math.max(1, Math.min(500, parseInt(sizeParam, 10) || 20))
+
+    // Set a practical upper limit for page numbers to prevent API issues
+    const MAX_PRACTICAL_PAGE = 10000
+    
+    if (page > MAX_PRACTICAL_PAGE) {
+      return NextResponse.json({
+        error: `Page ${page} exceeds the maximum practical limit (${MAX_PRACTICAL_PAGE}). Please try a lower page number.`,
+        maxPages: MAX_PRACTICAL_PAGE
+      }, { status: 400 })
+    }
+    
+    // For moderately high pages, do a quick search to get total count
+    if (page > 50) {
+      try {
+        // Do a quick search with page 1 to get total count
+        const quickSearch = await searchItems({
+          query,
+          mediatype,
+          sort,
+          page: 1,
+          size: 1
+        })
+        
+        const maxPages = Math.min(Math.ceil(quickSearch.total / size), MAX_PRACTICAL_PAGE)
+        if (page > maxPages) {
+          return NextResponse.json({
+            error: `Page ${page} exceeds maximum available pages (${maxPages})`,
+            maxPages,
+            total: quickSearch.total
+          }, { status: 400 })
+        }
+      } catch (validationError) {
+        // If even the validation search fails, return a generic error for high page numbers
+        return NextResponse.json({
+          error: `Page ${page} is too high. Please try a lower page number.`,
+          maxPages: 0
+        }, { status: 400 })
+      }
+    }
 
     // Search Internet Archive
     const searchResults = await searchItems({
@@ -81,7 +120,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<BrowseResp
     })
 
   } catch (error) {
-    log.error('Browse API error', 'remote-browse-api', { error: error.message }, error)
+    logger.error('Browse API error', 'remote-browse-api', { error: error.message }, error)
     return NextResponse.json(
       { error: 'Failed to fetch items' },
       { status: 500 }

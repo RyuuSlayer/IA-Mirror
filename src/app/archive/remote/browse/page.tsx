@@ -20,6 +20,7 @@ export default async function BrowsePage({
   const sort = typeof params.sort === 'string' ? params.sort : '-downloads'
   const hideDownloaded = params.hideDownloaded === 'true'
   const hideIgnored = params.hideIgnored === 'true'
+  const initialPage = typeof params.page === 'string' ? parseInt(params.page, 10) : 1
 
   return (
     <main className="container mx-auto p-4">
@@ -34,6 +35,7 @@ export default async function BrowsePage({
         initialSort={sort}
         initialHideDownloaded={hideDownloaded}
         initialHideIgnored={hideIgnored}
+        initialPage={initialPage}
       />
       </section>
     </main>

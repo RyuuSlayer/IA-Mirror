@@ -1,11 +1,14 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import ErrorBoundary from './ErrorBoundary'
 import SkeletonLoader from './SkeletonLoader'
+import Pagination from './Pagination'
 import { retryFetch, RETRY_CONFIGS } from '@/lib/retry'
+import { searchCache, cachedFetch, preloadAdjacentPages } from '@/lib/paginationCache'
 import { log } from '@/lib/logger'
 
 // CSRF token utility
@@ -24,6 +27,7 @@ interface BrowseResultsProps {
   initialSort?: string
   initialHideDownloaded?: boolean
   initialHideIgnored?: boolean
+  initialPage?: number
 }
 
 import type { SearchResult, BrowseResponse } from '@/types/api'
@@ -50,11 +54,13 @@ export default function BrowseResults({
   initialSort = '-downloads',
   initialHideDownloaded = false,
   initialHideIgnored = false,
+  initialPage = 1,
 }: BrowseResultsProps) {
+  const searchParams = useSearchParams()
   const [query, setQuery] = useState(initialQuery)
   const [mediatype, setMediatype] = useState(initialMediaType)
   const [sort, setSort] = useState(initialSort)
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useState(initialPage)
   const [pageSize, setPageSize] = useState(20)
   const [results, setResults] = useState<Item[]>([])
   const [total, setTotal] = useState(0)
@@ -76,19 +82,44 @@ export default function BrowseResults({
     abortControllerRef.current = null
   }
 
+  // Sync component state with URL parameters
+  useEffect(() => {
+    const urlQuery = searchParams.get('q') || ''
+    const urlMediatype = searchParams.get('mediatype') || ''
+    const urlSort = searchParams.get('sort') || '-downloads'
+    const urlPage = parseInt(searchParams.get('page') || '1', 10)
+    const urlHideDownloaded = searchParams.get('hideDownloaded') === 'true'
+    const urlHideIgnored = searchParams.get('hideIgnored') === 'true'
+
+    setQuery(urlQuery)
+    setMediatype(urlMediatype)
+    setSort(urlSort)
+    setPage(urlPage)
+    setHideDownloaded(urlHideDownloaded)
+    setHideIgnored(urlHideIgnored)
+  }, [searchParams])
+
   useEffect(() => {
     const fetchResults = async () => {
-      // Clean up any existing request
-      cleanupAbortController()
-
+      // Create new abort controller for this request
       const abortController = new AbortController()
+      
+      // Store reference to previous controller before updating
+      const previousController = abortControllerRef.current
+      
+      // Immediately abort previous request if it exists
+      if (previousController && !previousController.signal.aborted) {
+        previousController.abort()
+      }
+      
+      // Set new controller as current
       abortControllerRef.current = abortController
 
       try {
         setLoading(true)
         setError(null)
 
-        const params = new URLSearchParams({
+        const params = {
           q: query,
           mediatype,
           sort,
@@ -96,32 +127,90 @@ export default function BrowseResults({
           size: pageSize.toString(),
           hideDownloaded: hideDownloaded.toString(),
           hideIgnored: hideIgnored.toString(),
-        })
-
-        const response = await retryFetch(`/api/remote/browse?${params}`, {
-          signal: abortController.signal
-        }, RETRY_CONFIGS.METADATA)
-        
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(`Failed to fetch results: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`)
         }
 
-        const data: SearchResponse = await response.json()
-        if (!abortController.signal.aborted) {
+        // Check if request is already aborted before making the call
+        if (abortController.signal.aborted) {
+          return
+        }
+
+        const data = await cachedFetch(
+          searchCache,
+          params,
+          async () => {
+            const urlParams = new URLSearchParams(params)
+            const response = await retryFetch(`/api/remote/browse?${urlParams}`, {
+              signal: abortController.signal
+            }, RETRY_CONFIGS.METADATA)
+            
+            if (!response.ok) {
+              const errorText = await response.text()
+              throw new Error(`Failed to fetch results: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`)
+            }
+
+            const result: SearchResponse = await response.json()
+            return {
+              items: result.items,
+              total: result.total,
+              pages: result.pages
+            }
+          }
+        )
+
+        // Only update state if request wasn't aborted
+        if (!abortController.signal.aborted && abortControllerRef.current === abortController) {
           setResults(data.items)
           setTotal(data.total)
           setTotalPages(data.pages)
+
+          // Preload adjacent pages in the background with separate abort controllers
+          preloadAdjacentPages(
+            searchCache,
+            params,
+            async (preloadParams) => {
+              // Create separate abort controller for preloading to avoid cascade cancellation
+              const preloadController = new AbortController()
+              const urlParams = new URLSearchParams(preloadParams)
+              const response = await retryFetch(`/api/remote/browse?${urlParams}`, {
+                signal: preloadController.signal
+              }, RETRY_CONFIGS.METADATA)
+              const result = await response.json()
+              return {
+                items: result.items,
+                total: result.total,
+                pages: result.pages
+              }
+            },
+            { maxPreload: 1 }
+          ).catch(() => {}) // Ignore preload errors
         }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
           return
         }
-        const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
-        setError(`Unable to load search results: ${errorMessage}`)
-        log.error('Search error', 'BrowseResults', { query, mediatype, sort, page, error: error.message }, error)
+        // Only show error if this is still the current request
+        if (abortControllerRef.current === abortController) {
+          const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
+          
+          // Check if this is a page exceeds maximum error
+          if (errorMessage.includes('exceeds maximum available pages')) {
+            const maxPagesMatch = errorMessage.match(/maximum available pages \((\d+)\)/)
+            const maxPages = maxPagesMatch ? parseInt(maxPagesMatch[1], 10) : 1
+            setError(`Page ${page} is beyond the available results. There are only ${maxPages} pages available for this search.`)
+            // Automatically redirect to the last valid page
+            if (maxPages > 0) {
+              setPage(maxPages)
+              return
+            }
+          } else {
+            setError(`Unable to load search results: ${errorMessage}`)
+          }
+          
+          log.error('Search error', 'BrowseResults', { query, mediatype, sort, page, error: errorMessage }, error)
+        }
       } finally {
-        if (!abortController.signal.aborted) {
+        // Only update loading state if this is still the current request
+        if (!abortController.signal.aborted && abortControllerRef.current === abortController) {
           setLoading(false)
         }
       }
@@ -149,8 +238,8 @@ export default function BrowseResults({
 
   const handlePageSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = Number(e.target.value)
-      const validValue = isNaN(value) ? 20 : Math.max(1, Math.min(100, value))
-      setPageSize(validValue)
+    const validValue = isNaN(value) ? 20 : Math.max(1, Math.min(500, value))
+    setPageSize(validValue)
     setPage(1)
   }
 
@@ -687,45 +776,31 @@ export default function BrowseResults({
               value={pageSize}
               onChange={(e) => {
                 const value = Number(e.target.value)
-        const validValue = isNaN(value) ? 20 : Math.max(1, Math.min(100, value))
-        setPageSize(validValue)
+                const validValue = isNaN(value) ? 20 : Math.max(1, Math.min(500, value))
+                setPageSize(validValue)
                 setPage(1) // Reset to first page when changing page size
               }}
-              className="ml-2 px-2 py-1 text-sm border rounded"
+              className="ml-2 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Items per page"
             >
               <option value="10">10 per page</option>
               <option value="20">20 per page</option>
               <option value="50">50 per page</option>
               <option value="100">100 per page</option>
+              <option value="200">200 per page</option>
+              <option value="500">500 per page</option>
             </select>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className={`px-3 py-1 text-sm rounded ${
-                page === 1 
-                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              Previous
-            </button>
-            <span className="text-sm text-gray-600">
-              Page {page} of {totalPages}
-            </span>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages}
-              className={`px-3 py-1 text-sm rounded ${
-                page >= totalPages
-                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              Next
-            </button>
-          </div>
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            baseUrl="/archive/remote/browse"
+            query={query}
+            mediatype={mediatype}
+            sort={sort}
+            hideDownloaded={hideDownloaded}
+            hideIgnored={hideIgnored}
+          />
         </div>
       )}
       </div>

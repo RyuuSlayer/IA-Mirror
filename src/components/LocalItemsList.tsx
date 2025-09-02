@@ -7,8 +7,10 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import BrowseFilters from './BrowseFilters'
 import ErrorBoundary from './ErrorBoundary'
 import SkeletonLoader from './SkeletonLoader'
+import Pagination from './Pagination'
 import debounce from 'lodash/debounce'
 import { retryFetch, RETRY_CONFIGS } from '@/lib/retry'
+import { localItemsCache, cachedFetch, preloadAdjacentPages } from '@/lib/paginationCache'
 import { log } from '@/lib/logger'
 import type { LocalItem, PaginatedResponse } from '@/types/api'
 
@@ -32,28 +34,74 @@ export default function LocalItemsList() {
   const pageSizeParam = searchParams.get('pageSize') || '20'
   
   const currentPage = Math.max(1, parseInt(pageParam, 10) || 1)
-  const currentPageSize = Math.max(1, Math.min(100, parseInt(pageSizeParam, 10) || 20))
+  const currentPageSize = Math.max(1, Math.min(500, parseInt(pageSizeParam, 10) || 20))
   const showAll = searchParams.get('showAll') === 'true'
 
   useEffect(() => {
     const fetchItems = async () => {
       try {
-        const params = new URLSearchParams()
-        if (currentSearch) params.set('search', currentSearch)
-        if (currentMediaType) params.set('mediatype', currentMediaType)
-        params.set('sort', currentSort)
-        params.set('page', currentPage.toString())
-        params.set('pageSize', currentPageSize.toString())
-        params.set('showAll', showAll.toString())
-
-        const response = await retryFetch(`/api/items?${params.toString()}`, {}, RETRY_CONFIGS.METADATA)
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(`Failed to fetch local items: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`)
+        const params = {
+          q: currentSearch || '',
+          mediatype: currentMediaType || '',
+          sort: currentSort,
+          page: currentPage.toString(),
+          pageSize: currentPageSize.toString(),
+          showAll: showAll.toString()
         }
-        const data: ItemsResponse = await response.json()
+
+        const data = await cachedFetch(
+          localItemsCache,
+          params,
+          async () => {
+            const urlParams = new URLSearchParams()
+            if (currentSearch) urlParams.set('search', currentSearch)
+            if (currentMediaType) urlParams.set('mediatype', currentMediaType)
+            urlParams.set('sort', currentSort)
+            urlParams.set('page', currentPage.toString())
+            urlParams.set('pageSize', currentPageSize.toString())
+            urlParams.set('showAll', showAll.toString())
+
+            const response = await retryFetch(`/api/items?${urlParams.toString()}`, {}, RETRY_CONFIGS.METADATA)
+            if (!response.ok) {
+              const errorText = await response.text()
+              throw new Error(`Failed to fetch local items: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`)
+            }
+            const result: ItemsResponse = await response.json()
+            return {
+              items: result.items || [],
+              total: result.total || 0,
+              pages: Math.ceil((result.total || 0) / currentPageSize)
+            }
+          }
+        )
+
         setItems(data.items)
         setTotal(data.total)
+        
+        // Preload adjacent pages in the background
+        preloadAdjacentPages(
+          localItemsCache,
+          params,
+          async (preloadParams) => {
+            const urlParams = new URLSearchParams()
+            if (preloadParams.q) urlParams.set('search', preloadParams.q)
+            if (preloadParams.mediatype) urlParams.set('mediatype', preloadParams.mediatype)
+            urlParams.set('sort', preloadParams.sort)
+            urlParams.set('page', preloadParams.page)
+            urlParams.set('pageSize', preloadParams.pageSize)
+            urlParams.set('showAll', preloadParams.showAll)
+
+            const response = await retryFetch(`/api/items?${urlParams.toString()}`, {}, RETRY_CONFIGS.METADATA)
+            const result = await response.json()
+            return {
+              items: result.items || [],
+              total: result.total || 0,
+              pages: Math.ceil((result.total || 0) / parseInt(preloadParams.pageSize, 10))
+            }
+          },
+          { maxPreload: 1 }
+        ).catch(() => {}) // Ignore preload errors
+        
       } catch (error) {
         log.error('Error fetching local items', 'local-items-list', { error: error instanceof Error ? error.message : String(error) }, error instanceof Error ? error : undefined)
         const errorMessage = error instanceof Error ? error.message : 'Failed to fetch local items'
@@ -333,7 +381,7 @@ export default function LocalItemsList() {
               value={currentPageSize}
               onChange={(e) => {
                 const value = Number(e.target.value)
-                const validValue = isNaN(value) ? 20 : Math.max(1, Math.min(100, value))
+                const validValue = isNaN(value) ? 20 : Math.max(1, Math.min(500, value))
                 handlePageSizeChange(validValue)
               }}
               className="ml-2 px-2 py-1 text-sm border rounded"
@@ -342,43 +390,18 @@ export default function LocalItemsList() {
               <option value="20">20 per page</option>
               <option value="50">50 per page</option>
               <option value="100">100 per page</option>
+              <option value="200">200 per page</option>
+              <option value="500">500 per page</option>
             </select>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                const params = new URLSearchParams(searchParams.toString())
-                params.set('page', (currentPage - 1).toString())
-                router.push(`?${params.toString()}`)
-              }}
-              disabled={currentPage === 1}
-              className={`px-3 py-1 text-sm rounded ${
-                currentPage === 1 
-                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              Previous
-            </button>
-            <span className="text-sm text-gray-600">
-              Page {currentPage} of {Math.ceil(total / currentPageSize)}
-            </span>
-            <button
-              onClick={() => {
-                const params = new URLSearchParams(searchParams.toString())
-                params.set('page', (currentPage + 1).toString())
-                router.push(`?${params.toString()}`)
-              }}
-              disabled={currentPage >= Math.ceil(total / currentPageSize)}
-              className={`px-3 py-1 text-sm rounded ${
-                currentPage >= Math.ceil(total / currentPageSize)
-                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              Next
-            </button>
-          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(total / currentPageSize)}
+            baseUrl="/archive/local"
+            query={currentSearch}
+            mediatype={currentMediaType}
+            sort={currentSort}
+          />
         </div>
       )}
         </section>

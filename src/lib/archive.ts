@@ -61,7 +61,20 @@ export async function searchItems({
       throw new Error(`Failed to fetch from IA: ${response.status}`)
     }
 
-    const data = await response.json()
+    const responseText = await response.text()
+    
+    // Check for Internet Archive range out of bounds error
+    if (responseText.startsWith('[RANGE_OUT_')) {
+      throw new Error(`Page ${page} exceeds maximum available pages for this search`)
+    }
+    
+    let data
+    try {
+      data = JSON.parse(responseText)
+    } catch (parseError) {
+      log('Failed to parse response:', responseText.substring(0, 100))
+      throw new Error('Invalid response from Internet Archive')
+    }
     return {
       items: data.response.docs,
       total: data.response.numFound

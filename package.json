@@ -8,6 +8,7 @@
     "@internetarchive/dweb-archivecontroller": "^0.2.16",
     "@types/jquery": "^3.5.33",
     "@types/lodash": "^4.17.20",
+    "@types/react-window": "^1.8.8",
     "debug": "^4.4.1",
     "dotenv": "^17.2.1",
     "fast-xml-parser": "^5.2.5",
@@ -19,6 +20,7 @@
     "prettier-bytes": "^1.0.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-window": "^2.0.2",
     "sharp": "^0.34.3"
   },
   "devDependencies": {

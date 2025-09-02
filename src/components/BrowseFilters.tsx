@@ -203,7 +203,7 @@ export default function BrowseFilters({
             value={pageSize}
             onChange={(e) => {
                   const value = Number(e.target.value)
-                  const validValue = isNaN(value) ? 20 : Math.max(1, Math.min(100, value))
+                  const validValue = isNaN(value) ? 20 : Math.max(1, Math.min(500, value))
                   handlePageSizeChange(validValue)
                 }}
             className="px-3 py-2 border border-gray-300 rounded-md bg-white
