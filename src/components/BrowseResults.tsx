@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import ErrorBoundary from './ErrorBoundary'
+import SkeletonLoader from './SkeletonLoader'
 import { retryFetch, RETRY_CONFIGS } from '@/lib/retry'
 
 // CSRF token utility
@@ -418,15 +419,50 @@ export default function BrowseResults({
         </div>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className="space-y-6">
+          <div className="flex flex-col items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#428BCA] border-t-transparent mb-4"></div>
+            <p className="text-gray-600">Searching Internet Archive...</p>
+          </div>
+          
+          {/* Skeleton loaders */}
+          {viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <SkeletonLoader variant="card" count={6} />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <SkeletonLoader variant="list" count={4} />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Results Count */}
-      {total > 0 && (
+      {!loading && total > 0 && (
         <div className="mb-4 text-gray-600">
           Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} of {total} results
         </div>
       )}
 
+      {/* Empty State */}
+      {!loading && total === 0 && !error && (
+        <div className="flex flex-col items-center justify-center py-12">
+          <svg className="w-16 h-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No results found</h3>
+          <p className="text-gray-600 text-center max-w-md">
+            {query ? `No items found matching "${query}". Try adjusting your search terms or filters.` : 'Try searching for something or adjusting your filters.'}
+          </p>
+        </div>
+      )}
+
       {/* Results grid/list */}
-      {viewMode === 'grid' ? (
+      {!loading && results.length > 0 && (
+        viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {results.map((item) => (
             <div key={item.identifier} className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
@@ -620,10 +656,11 @@ export default function BrowseResults({
             </div>
           ))}
         </div>
+      )
       )}
 
       {/* Pagination */}
-      {total > 0 && (
+      {!loading && total > 0 && (
         <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">

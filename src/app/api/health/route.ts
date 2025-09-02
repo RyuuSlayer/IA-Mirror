@@ -4,6 +4,7 @@ import path from 'path'
 import { getConfig } from '@/lib/config'
 import { readDownloads } from '@/lib/downloads'
 import { retryFetch, RETRY_CONFIGS } from '@/lib/retry'
+import { healthCache } from '@/lib/cache'
 import type { HealthCheckResponse, HealthCheckService } from '@/types/api'
 
 const startTime = Date.now()
@@ -214,6 +215,16 @@ async function checkInternetArchiveHealth(): Promise<HealthCheckService> {
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse<HealthCheckResponse>> {
+  // Check cache first (short TTL for health checks)
+  const cacheKey = 'health-status'
+  const cachedHealth = healthCache.get(cacheKey)
+  
+  if (cachedHealth) {
+    console.log('Using cached health status')
+    return NextResponse.json(cachedHealth)
+  }
+  
+  console.log('Generating fresh health status')
   const timestamp = new Date().toISOString()
   const uptime = Date.now() - startTime
   
@@ -249,6 +260,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<HealthChec
     services,
     summary
   }
+  
+  // Cache the result
+  healthCache.set(cacheKey, healthResponse)
   
   // Set appropriate HTTP status code
   const httpStatus = overallStatus === 'healthy' ? 200 : overallStatus === 'degraded' ? 200 : 503

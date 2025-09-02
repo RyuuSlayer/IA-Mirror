@@ -10,6 +10,7 @@ import {
   checkRateLimit,
   getCSRFTokenFromRequest
 } from '@/lib/security'
+import { getMetadataCache, generateMetadataCacheKey } from '@/lib/cache'
 import type { ItemMetadata, RawMetadata, ApiResponse } from '@/types/api'
 
 const log = debug('ia-mirror:metadata')
@@ -151,17 +152,32 @@ export async function GET(
     console.log('Metadata path:', metadataPath)
     console.log('Force refresh:', request.headers.get('force-refresh'))
 
-    // Try to fetch fresh metadata from Internet Archive if force refresh
-    if (request.headers.get('force-refresh') === 'true') {
+    const cacheKey = generateMetadataCacheKey(identifier)
+    const metadataCache = getMetadataCache()
+    const forceRefresh = request.headers.get('force-refresh') === 'true'
+
+    // Try cache first (unless force refresh)
+    if (!forceRefresh) {
+      const cachedMetadata = await metadataCache.get(cacheKey)
+      if (cachedMetadata) {
+        console.log('Using cached metadata for:', identifier)
+        metadata = cachedMetadata
+      }
+    }
+
+    // If no cached data or force refresh, try to fetch fresh metadata from Internet Archive
+    if (Object.keys(metadata).length === 0 || forceRefresh) {
       try {
         console.log('Fetching fresh metadata from Internet Archive')
         const iaResponse = await fetch(`https://archive.org/metadata/${identifier}`)
         if (iaResponse.ok) {
           metadata = await iaResponse.json()
           console.log('Got fresh metadata:', JSON.stringify(metadata, null, 2))
-          // Save the fresh metadata
+          
+          // Save to both cache and local file
+          await metadataCache.set(cacheKey, metadata)
           fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2))
-          console.log('Saved fresh metadata to:', metadataPath)
+          console.log('Saved fresh metadata to cache and file:', metadataPath)
         } else {
           console.error('Failed to fetch fresh metadata:', await iaResponse.text())
         }
@@ -171,13 +187,16 @@ export async function GET(
       }
     }
 
-    // If not force refresh or if force refresh failed, use local metadata
+    // If still no metadata, try local file
     if (Object.keys(metadata).length === 0 && fs.existsSync(metadataPath)) {
       try {
         console.log('Reading local metadata from:', metadataPath)
         const rawMetadata = fs.readFileSync(metadataPath, 'utf8')
         metadata = JSON.parse(rawMetadata)
         console.log('Got local metadata:', JSON.stringify(metadata, null, 2))
+        
+        // Cache the local metadata for future requests
+        await metadataCache.set(cacheKey, metadata)
       } catch (error) {
         console.error('Error reading local metadata:', error)
         return NextResponse.json(

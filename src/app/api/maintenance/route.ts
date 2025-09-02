@@ -6,6 +6,7 @@ import { getConfig, getBaseUrl } from '@/lib/config'
 import { readJsonFile } from '@/lib/utils'
 import { retryFetch, RETRY_CONFIGS } from '@/lib/retry'
 import { queueDownloadDirect } from '@/lib/downloads'
+import { getMetadataCache, generateMetadataCacheKey } from '@/lib/cache'
 import type { MaintenanceRequest, MaintenanceResult, MaintenanceIssue, MetadataFile, ApiResponse } from '@/types/api'
 
 const MEDIA_TYPE_FOLDERS = {
@@ -211,6 +212,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
 
     if (action === 'refresh-metadata') {
       // Refresh metadata for all items
+      const metadataCache = getMetadataCache()
+      
       for (const folder of Object.values(MEDIA_TYPE_FOLDERS)) {
         const folderPath = path.join(storagePath, folder)
         if (!fs.existsSync(folderPath)) continue
@@ -221,6 +224,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
           if (!fs.statSync(itemPath).isDirectory()) continue
 
           try {
+            // Clear cache for this item first
+            const cacheKey = generateMetadataCacheKey(item)
+            await metadataCache.delete(cacheKey)
+            
             const baseUrl = getBaseUrl()
             const response = await retryFetch(`${baseUrl}/api/metadata/${item}`, {
               method: 'GET',

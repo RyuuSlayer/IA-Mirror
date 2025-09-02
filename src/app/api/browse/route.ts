@@ -14,6 +14,7 @@ import {
   sanitizeInput
 } from '@/lib/security'
 import { readJsonFile } from '@/lib/utils'
+import { searchCache, generateSearchCacheKey } from '@/lib/cache'
 import type { BrowseResponse, SearchParams, ApiResponse } from '@/types/api'
 
 const log = debug('ia-mirror:api:browse')
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<BrowseResp
       return NextResponse.json(response)
     }
 
-    // Search Internet Archive
+    // Search Internet Archive with caching
     const searchOptions = {
       query,
       mediatype,
@@ -92,7 +93,17 @@ export async function GET(request: NextRequest): Promise<NextResponse<BrowseResp
       page,
       size
     }
-    const searchResults = await searchItems(searchOptions)
+    
+    const cacheKey = generateSearchCacheKey(query, mediatype, sort, page, size)
+    let searchResults = searchCache.get(cacheKey)
+    
+    if (!searchResults) {
+      console.log('Cache miss for search, fetching from IA:', cacheKey)
+      searchResults = await searchItems(searchOptions)
+      searchCache.set(cacheKey, searchResults)
+    } else {
+      console.log('Cache hit for search:', cacheKey)
+    }
 
     // Get local items to check which are downloaded
     const localItems = await getLocalItems({ mediatype })

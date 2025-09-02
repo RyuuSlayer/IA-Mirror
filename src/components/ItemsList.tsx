@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import SkeletonLoader from './SkeletonLoader'
 import type { SearchResult } from '@/types/api'
 
 // CSRF token utility
@@ -146,8 +147,24 @@ export default function ItemsList({ items = [] }: ItemsListProps) {
     )
   }
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#428BCA] border-t-transparent mb-4"></div>
+          <p className="text-gray-600">Loading item details...</p>
+        </div>
+        
+        {/* Skeleton loaders */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <SkeletonLoader variant="card" count={items.length || 3} />
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="items-grid">
+    <div className="items-list">
       {itemsWithFiles.map((item) => (
         <div key={item.identifier} className="item-card">
           <div className="item-thumbnail">

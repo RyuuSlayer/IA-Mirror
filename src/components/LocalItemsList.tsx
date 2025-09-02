@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { useSearchParams, useRouter } from 'next/navigation'
 import BrowseFilters from './BrowseFilters'
 import ErrorBoundary from './ErrorBoundary'
+import SkeletonLoader from './SkeletonLoader'
 import debounce from 'lodash/debounce'
 import { retryFetch, RETRY_CONFIGS } from '@/lib/retry'
 import type { LocalItem, PaginatedResponse } from '@/types/api'
@@ -100,8 +101,16 @@ export default function LocalItemsList() {
 
   if (loading) {
     return (
-      <div className="loading-state">
-        <p>Loading your local items...</p>
+      <div className="space-y-6">
+        <div className="flex flex-col items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#428BCA] border-t-transparent mb-4"></div>
+          <p className="text-gray-600">Loading your local items...</p>
+        </div>
+        
+        {/* Skeleton loaders */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <SkeletonLoader variant="card" count={6} />
+        </div>
       </div>
     )
   }

@@ -3,6 +3,7 @@ import './globals.css'
 import './bookreader.css'
 import Navbar from '@/components/Navbar'
 import ErrorBoundary from '@/components/ErrorBoundary'
+import StartupHandler from '@/components/StartupHandler'
 
 export const metadata: Metadata = {
   title: 'Internet Archive Mirror',
@@ -20,6 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen flex flex-col bg-[#FAFAFA]">
+        <StartupHandler />
         <Navbar />
         <main className="flex-1">
           <ErrorBoundary>

@@ -18,6 +18,7 @@ import {
   DownloadError,
   handleApiError
 } from '@/lib/errors'
+import { getMetadataCache, generateMetadataCacheKey } from '@/lib/cache'
 import type { DownloadItem, DownloadRequest, ApiResponse } from '@/types/api'
 // Map of media types to folder names
 const MEDIA_TYPE_FOLDERS = {
@@ -72,11 +73,29 @@ function isDerivativeFile(filename: string): boolean {
 
 async function fetchMetadata(identifier: string) {
   try {
+    const cacheKey = generateMetadataCacheKey(identifier)
+    const metadataCache = getMetadataCache()
+    
+    // Try cache first
+    const cachedMetadata = await metadataCache.get(cacheKey)
+    if (cachedMetadata) {
+      console.log('Using cached metadata for download:', identifier)
+      return cachedMetadata
+    }
+    
+    // Fetch from Internet Archive
+    console.log('Fetching metadata from IA for download:', identifier)
     const response = await fetch(`https://archive.org/metadata/${identifier}`)
     if (!response.ok) {
       throw new Error(`Failed to fetch metadata: ${response.status}`)
     }
-    return await response.json()
+    
+    const metadata = await response.json()
+    
+    // Cache the result
+    await metadataCache.set(cacheKey, metadata)
+    
+    return metadata
   } catch (error) {
     console.error('Error fetching metadata:', error)
     return null
