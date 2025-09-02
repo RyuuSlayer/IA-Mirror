@@ -24,13 +24,18 @@ export default async function BrowsePage({
 
   return (
     <main className="container-ia">
-      <h1>Browse Internet Archive</h1>
-      <BrowseResults
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold text-[#2C2C2C]">Browse Internet Archive</h1>
+        <p className="mt-2 text-gray-600">Search and discover content from the Internet Archive</p>
+      </header>
+      <section aria-label="Search results">
+        <BrowseResults
         initialQuery={query}
         initialMediaType={mediatype}
         initialSort={sort}
         initialHideDownloaded={hideDownloaded}
       />
+      </section>
     </main>
   )
 }

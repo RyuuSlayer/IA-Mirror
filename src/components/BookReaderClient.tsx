@@ -136,7 +136,7 @@ export default function BookReaderClient({ identifier, fileName, title }: BookRe
         // Show error message in container
         if (containerRef.current) {
           containerRef.current.innerHTML = `
-            <div class="flex items-center justify-center h-full">
+            <div class="flex items-center justify-center h-full" role="alert" aria-live="assertive" aria-atomic="true">
               <div class="text-center">
                 <div class="text-red-600 text-lg mb-2">Failed to load BookReader</div>
                 <div class="text-gray-600">File type: ${fileExtension?.toUpperCase() || 'Unknown'}</div>
@@ -179,7 +179,14 @@ export default function BookReaderClient({ identifier, fileName, title }: BookRe
       style={{ minHeight: '500px' }}
     >
       <div className="flex items-center justify-center h-full">
-        <div className="text-lg text-gray-600">Initializing viewer...</div>
+        <div 
+          className="text-lg text-gray-600"
+          role="status"
+          aria-live="polite"
+          aria-label="Loading viewer"
+        >
+          Initializing viewer...
+        </div>
       </div>
     </div>
   )

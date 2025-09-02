@@ -278,11 +278,16 @@ export default function DownloadsPage() {
       <div className="min-h-screen bg-[#FAFAFA]">
         {/* Notification Toast */}
         {notification && (
-          <div className={`fixed top-4 right-4 z-50 max-w-sm w-full shadow-lg rounded-lg p-4 ${
-            notification.type === 'success' ? 'bg-green-50 border border-green-200' :
-            notification.type === 'error' ? 'bg-red-50 border border-red-200' :
-            'bg-blue-50 border border-blue-200'
-          }`}>
+          <div 
+            className={`fixed top-4 right-4 z-50 max-w-sm w-full shadow-lg rounded-lg p-4 ${
+              notification.type === 'success' ? 'bg-green-50 border border-green-200' :
+              notification.type === 'error' ? 'bg-red-50 border border-red-200' :
+              'bg-blue-50 border border-blue-200'
+            }`}
+            role="alert"
+            aria-live="polite"
+            aria-atomic="true"
+          >
             <div className="flex items-start">
               <div className="flex-shrink-0">
                 {notification.type === 'success' && (

@@ -86,17 +86,25 @@ export default async function ItemPage(props: Props) {
       <div className="min-h-screen bg-[#FAFAFA]">
         <main className="max-w-7xl mx-auto px-4 py-8">
           {/* Breadcrumb */}
-          <div className="mb-6 flex items-center text-sm text-gray-600">
-            <a href="/archive/local" className="hover:text-blue-600">Local Library</a>
-            <span className="mx-2">/</span>
-            {metadata.mediatype && (
-              <>
-                <span className="text-gray-600">{metadata.mediatype}</span>
-                <span className="mx-2">/</span>
-              </>
-            )}
-            <span className="text-gray-800">{metadata.title}</span>
-          </div>
+          <nav aria-label="Breadcrumb" className="mb-6">
+            <ol className="flex items-center text-sm text-gray-600">
+              <li>
+                <a href="/archive/local" className="hover:text-blue-600">Local Library</a>
+              </li>
+              <li aria-hidden="true" className="mx-2">/</li>
+              {metadata.mediatype && (
+                <>
+                  <li>
+                    <span className="text-gray-600">{metadata.mediatype}</span>
+                  </li>
+                  <li aria-hidden="true" className="mx-2">/</li>
+                </>
+              )}
+              <li aria-current="page">
+                <span className="text-gray-800">{metadata.title}</span>
+              </li>
+            </ol>
+          </nav>
 
           {/* Title */}
           <h1 className="text-3xl font-bold text-[#2C2C2C] mb-8">{metadata.title}</h1>
@@ -117,7 +125,7 @@ export default async function ItemPage(props: Props) {
             </aside>
 
             {/* Main content */}
-            <main className="lg:w-2/3">
+            <div className="lg:w-2/3">
               {/* Metadata section */}
               <section className="bg-white rounded-lg shadow-sm p-6 mb-6">
                 <h2 className="text-xl font-semibold mb-4">Details</h2>
@@ -236,7 +244,7 @@ export default async function ItemPage(props: Props) {
                   </div>
                 </section>
               )}
-            </main>
+            </div>
           </div>
         </main>
       </div>

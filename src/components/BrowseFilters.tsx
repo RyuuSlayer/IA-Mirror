@@ -128,13 +128,16 @@ export default function BrowseFilters({
   return (
     <div className="mb-8">
       <div className="mb-6">
-        <form onSubmit={handleSubmit} className="flex flex-wrap gap-3">
+        <form onSubmit={handleSubmit} className="flex flex-wrap gap-3" role="search" aria-label="Search and filter items">
           <div className="flex-1 min-w-[200px]">
+            <label htmlFor="search-input" className="sr-only">Search items</label>
             <input
+              id="search-input"
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search items..."
+              aria-label="Search items"
               className="w-full px-3 py-2 border border-gray-300 rounded-md 
                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
@@ -142,61 +145,77 @@ export default function BrowseFilters({
           <button 
             type="submit" 
             className="px-6 py-2 bg-[#428BCA] text-white rounded-md hover:bg-[#357EBD] 
-              transition-colors duration-200"
+              transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            aria-label="Submit search"
           >
             Search
           </button>
         </form>
       </div>
 
-      <div className="flex flex-wrap gap-4">
-        <select
-          value={mediatype}
-          onChange={(e) => handleMediaTypeChange(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-md bg-white
-            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          <option value="">All Media Types</option>
-          <option value="texts">Books</option>
-          <option value="movies">Videos</option>
-          <option value="audio">Audio</option>
-          <option value="software">Software</option>
-          <option value="image">Images</option>
-          <option value="etree">Concerts</option>
-          <option value="data">Data</option>
-          <option value="web">Web</option>
-          <option value="collection">Collections</option>
-        </select>
+      <div className="flex flex-wrap gap-4" role="group" aria-label="Filter options">
+        <div>
+          <label htmlFor="mediatype-select" className="sr-only">Filter by media type</label>
+          <select
+            id="mediatype-select"
+            value={mediatype}
+            onChange={(e) => handleMediaTypeChange(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md bg-white
+              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            aria-label="Filter by media type"
+          >
+            <option value="">All Media Types</option>
+            <option value="texts">Books</option>
+            <option value="movies">Videos</option>
+            <option value="audio">Audio</option>
+            <option value="software">Software</option>
+            <option value="image">Images</option>
+            <option value="etree">Concerts</option>
+            <option value="data">Data</option>
+            <option value="web">Web</option>
+            <option value="collection">Collections</option>
+          </select>
+        </div>
 
-        <select
-          value={sort}
-          onChange={(e) => handleSortChange(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-md bg-white
-            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
+        <div>
+          <label htmlFor="sort-select" className="sr-only">Sort results</label>
+          <select
+            id="sort-select"
+            value={sort}
+            onChange={(e) => handleSortChange(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md bg-white
+              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            aria-label="Sort results"
+          >
           <option value="-downloads">Most Downloads</option>
           <option value="downloads">Least Downloads</option>
           <option value="-date">Newest First</option>
           <option value="date">Oldest First</option>
           <option value="title">Title A-Z</option>
           <option value="-title">Title Z-A</option>
-        </select>
+          </select>
+        </div>
 
-        <select
-          value={pageSize}
-          onChange={(e) => {
-                const value = Number(e.target.value)
-                const validValue = isNaN(value) ? 20 : Math.max(1, Math.min(100, value))
-                handlePageSizeChange(validValue)
-              }}
-          className="px-3 py-2 border border-gray-300 rounded-md bg-white
-            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          <option value="10">10 per page</option>
-          <option value="20">20 per page</option>
-          <option value="50">50 per page</option>
-          <option value="100">100 per page</option>
-        </select>
+        <div>
+          <label htmlFor="pagesize-select" className="sr-only">Items per page</label>
+          <select
+            id="pagesize-select"
+            value={pageSize}
+            onChange={(e) => {
+                  const value = Number(e.target.value)
+                  const validValue = isNaN(value) ? 20 : Math.max(1, Math.min(100, value))
+                  handlePageSizeChange(validValue)
+                }}
+            className="px-3 py-2 border border-gray-300 rounded-md bg-white
+              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            aria-label="Items per page"
+          >
+            <option value="10">10 per page</option>
+            <option value="20">20 per page</option>
+            <option value="50">50 per page</option>
+            <option value="100">100 per page</option>
+          </select>
+        </div>
 
         {hideDownloaded !== undefined && onHideDownloadedChange && (
           <label className="flex items-center gap-2 text-gray-700">

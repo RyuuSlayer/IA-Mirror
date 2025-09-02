@@ -103,7 +103,12 @@ export default function LocalItemsList() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="flex flex-col items-center justify-center py-8">
+        <div 
+          className="flex flex-col items-center justify-center py-8"
+          role="status"
+          aria-live="polite"
+          aria-label="Loading content"
+        >
           <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#428BCA] border-t-transparent mb-4"></div>
           <p className="text-gray-600">Loading your local items...</p>
         </div>
@@ -118,7 +123,12 @@ export default function LocalItemsList() {
 
   if (error) {
     return (
-      <div className="error-state">
+      <div 
+        className="error-state"
+        role="alert"
+        aria-live="assertive"
+        aria-atomic="true"
+      >
         <p>Error: {error}</p>
       </div>
     )
@@ -126,7 +136,12 @@ export default function LocalItemsList() {
 
   if (!items?.length) {
     return (
-      <div className="empty-state">
+      <div 
+        className="empty-state"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
         <p>No items in your local archive yet.</p>
         <p>Browse the Internet Archive to download some items!</p>
       </div>
@@ -136,7 +151,8 @@ export default function LocalItemsList() {
   return (
     <ErrorBoundary>
       <div className="browse-results">
-      <BrowseFilters
+        <section aria-label="Search and filter options">
+          <BrowseFilters
         query={currentSearch}
         mediatype={currentMediaType}
         sort={currentSort}
@@ -146,9 +162,11 @@ export default function LocalItemsList() {
         onSortChange={handleSortChange}
         onPageSizeChange={handlePageSizeChange}
       />
+        </section>
 
-      {/* View mode toggle */}
-      <div className="mb-4 flex justify-between items-center">
+        <section aria-label="View options and results">
+          {/* View mode toggle */}
+          <div className="mb-4 flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <button
             onClick={() => setViewMode('grid')}
@@ -158,6 +176,8 @@ export default function LocalItemsList() {
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
             title="Grid view"
+            aria-label="Switch to grid view"
+            aria-pressed={viewMode === 'grid'}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
@@ -171,6 +191,8 @@ export default function LocalItemsList() {
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
             title="Row view"
+            aria-label="Switch to row view"
+            aria-pressed={viewMode === 'row'}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -359,6 +381,7 @@ export default function LocalItemsList() {
           </div>
         </div>
       )}
+        </section>
       </div>
     </ErrorBoundary>
   )

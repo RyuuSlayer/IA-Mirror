@@ -21,9 +21,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen flex flex-col bg-[#FAFAFA]">
+        {/* Skip link for accessibility */}
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
         <StartupHandler />
         <Navbar />
-        <main className="flex-1">
+        <main id="main-content" className="flex-1">
           <ErrorBoundary>
             {children}
           </ErrorBoundary>

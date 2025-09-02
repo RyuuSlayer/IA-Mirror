@@ -291,10 +291,11 @@ export default function SettingsPage() {
 
         <div className="space-y-6">
           {/* Settings Form */}
-          <section className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-semibold mb-6">General Settings</h2>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid gap-6">
+          <section className="bg-white rounded-lg shadow-sm p-6" role="region" aria-labelledby="settings-heading">
+            <h2 id="settings-heading" className="text-xl font-semibold mb-6">General Settings</h2>
+            <form onSubmit={handleSubmit} className="space-y-6" role="form" aria-label="Application settings form">
+              <fieldset className="grid gap-6">
+                <legend className="sr-only">Application Configuration</legend>
                 <div>
                   <label htmlFor="storagePath" className="block text-sm font-medium text-gray-700 mb-1">
                     Storage Path
@@ -306,7 +307,12 @@ export default function SettingsPage() {
                     onChange={(e) => setSettings({ ...settings, storagePath: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     placeholder="/path/to/storage"
+                    aria-describedby="storagePath-description"
+                    aria-required="true"
                   />
+                  <p id="storagePath-description" className="mt-1 text-sm text-gray-500">
+                    Directory where downloaded files will be stored
+                  </p>
                 </div>
 
                 <div>
@@ -325,7 +331,12 @@ export default function SettingsPage() {
                     min="1"
                     max="10"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    aria-describedby="maxConcurrentDownloads-description"
+                    aria-required="true"
                   />
+                  <p id="maxConcurrentDownloads-description" className="mt-1 text-sm text-gray-500">
+                    Number of files to download simultaneously (1-10)
+                  </p>
                 </div>
 
                 <div>
@@ -339,42 +350,55 @@ export default function SettingsPage() {
                     onChange={(e) => setSettings({ ...settings, baseUrl: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     placeholder="http://localhost:3000"
+                    aria-describedby="baseUrl-description"
+                    aria-required="true"
                   />
-                  <p className="mt-1 text-sm text-gray-500">
+                  <p id="baseUrl-description" className="mt-1 text-sm text-gray-500">
                     The base URL for the application (including protocol and port)
                   </p>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="skipHashCheck"
-                      checked={settings.skipHashCheck}
-                      onChange={(e) => setSettings({ ...settings, skipHashCheck: e.target.checked })}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="skipHashCheck" className="ml-2 block text-sm text-gray-700">
+              </fieldset>
+              
+              <fieldset className="space-y-4">
+                <legend className="text-sm font-medium text-gray-700 mb-3">Download Options</legend>
+                <div className="flex items-start">
+                  <input
+                    type="checkbox"
+                    id="skipHashCheck"
+                    checked={settings.skipHashCheck}
+                    onChange={(e) => setSettings({ ...settings, skipHashCheck: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-0.5"
+                    aria-describedby="skipHashCheck-description"
+                  />
+                  <div className="ml-3">
+                    <label htmlFor="skipHashCheck" className="block text-sm text-gray-700">
                       Skip Hash Check
                     </label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="enableFileLogging"
-                      checked={settings.enableFileLogging}
-                      onChange={(e) => setSettings({ ...settings, enableFileLogging: e.target.checked })}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="enableFileLogging" className="ml-2 block text-sm text-gray-700">
-                      Enable File Logging
-                    </label>
-                    <p className="ml-2 text-sm text-gray-500">
-                      (When disabled, logs are only kept in memory)
+                    <p id="skipHashCheck-description" className="text-sm text-gray-500">
+                      Skip file integrity verification during downloads (faster but less secure)
                     </p>
                   </div>
                 </div>
-              </div>
+                <div className="flex items-start">
+                  <input
+                    type="checkbox"
+                    id="enableFileLogging"
+                    checked={settings.enableFileLogging}
+                    onChange={(e) => setSettings({ ...settings, enableFileLogging: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-0.5"
+                    aria-describedby="enableFileLogging-description"
+                  />
+                  <div className="ml-3">
+                    <label htmlFor="enableFileLogging" className="block text-sm text-gray-700">
+                      Enable File Logging
+                    </label>
+                    <p id="enableFileLogging-description" className="text-sm text-gray-500">
+                      Save application logs to files (when disabled, logs are only kept in memory)
+                    </p>
+                  </div>
+                </div>
+              </fieldset>
 
               <div className="flex items-center justify-end gap-4">
                 {message && <span className="text-green-600 text-sm">{message}</span>}
@@ -382,53 +406,83 @@ export default function SettingsPage() {
                 <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  aria-describedby="save-settings-description"
                 >
                   Save Settings
                 </button>
+                <span id="save-settings-description" className="sr-only">
+                  Save all configuration changes to the application settings
+                </span>
               </div>
             </form>
           </section>
 
           {/* Maintenance Section */}
-          <section className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-semibold mb-6">Maintenance</h2>
+          <section className="bg-white rounded-lg shadow-sm p-6" role="region" aria-labelledby="maintenance-heading">
+            <h2 id="maintenance-heading" className="text-xl font-semibold mb-6">Maintenance</h2>
             
             <div className="space-y-4">
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-3" role="group" aria-labelledby="maintenance-actions">
+                <h3 id="maintenance-actions" className="sr-only">Maintenance Actions</h3>
                 <button
                   onClick={() => runMaintenance('refresh-metadata')}
                   disabled={isMaintenanceRunning}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50"
+                  aria-describedby="refresh-metadata-description"
+                  aria-disabled={isMaintenanceRunning}
                 >
                   Refresh Metadata
                 </button>
+                <span id="refresh-metadata-description" className="sr-only">
+                  Update metadata for all items in the library
+                </span>
                 <button
                   onClick={() => runMaintenance('verify-files')}
                   disabled={isMaintenanceRunning}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50"
+                  aria-describedby="verify-files-description"
+                  aria-disabled={isMaintenanceRunning}
                 >
                   Verify Files
                 </button>
+                <span id="verify-files-description" className="sr-only">
+                  Check file integrity and identify any corrupted or missing files
+                </span>
                 <button
                   onClick={() => runMaintenance('find-derivatives')}
                   disabled={isMaintenanceRunning}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50"
+                  aria-describedby="find-derivatives-description"
+                  aria-disabled={isMaintenanceRunning}
                 >
                   Find Derivatives
                 </button>
+                <span id="find-derivatives-description" className="sr-only">
+                  Scan for derivative files that may need cleanup
+                </span>
               </div>
 
               {isMaintenanceRunning && (
-                <div className="flex items-center gap-2 text-gray-600">
+                <div 
+                  className="flex items-center gap-2 text-gray-600"
+                  role="status"
+                  aria-live="polite"
+                  aria-label="Maintenance status"
+                >
                   <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
                   Maintenance in progress...
                 </div>
               )}
 
               {maintenanceResult && (
-                <div className={`mt-4 p-4 rounded-md ${
-                  maintenanceResult.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
-                }`}>
+                <div 
+                  className={`mt-4 p-4 rounded-md ${
+                    maintenanceResult.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+                  }`}
+                  role="alert"
+                  aria-live="assertive"
+                  aria-atomic="true"
+                >
                   <p className="font-medium">{maintenanceResult.message}</p>
                   
                   {maintenanceResult.issues && maintenanceResult.issues.length > 0 && (
@@ -440,19 +494,29 @@ export default function SettingsPage() {
                             onClick={() => runMaintenance('redownload-mismatched')}
                             disabled={isMaintenanceRunning}
                             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+                            aria-describedby="queue-all-description"
+                            aria-disabled={isMaintenanceRunning}
                           >
                             Queue All for Redownload
                           </button>
                         )}
+                        <span id="queue-all-description" className="sr-only">
+                          Queue all mismatched files for redownload to fix integrity issues
+                        </span>
                         {maintenanceResult.type === 'find-derivatives' && (
                           <button
                             onClick={() => runMaintenance('remove-derivatives')}
                             disabled={isMaintenanceRunning}
                             className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50"
+                            aria-describedby="delete-all-derivatives-description"
+                            aria-disabled={isMaintenanceRunning}
                           >
                             Delete All Derivatives
                           </button>
                         )}
+                        <span id="delete-all-derivatives-description" className="sr-only">
+                          Permanently delete all derivative files to free up storage space
+                        </span>
                       </div>
                       <div className="space-y-2">
                         {remainingIssues.map((issue, index) => (
@@ -475,6 +539,8 @@ export default function SettingsPage() {
                                 })}
                                 disabled={isMaintenanceRunning}
                                 className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+                                aria-label={`Queue ${issue.file || issue.item} for redownload`}
+                                aria-disabled={isMaintenanceRunning}
                               >
                                 Queue for Redownload
                               </button>
@@ -487,6 +553,8 @@ export default function SettingsPage() {
                                 })}
                                 disabled={isMaintenanceRunning}
                                 className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50"
+                                aria-label={`Delete derivative file ${issue.file || issue.item}`}
+                                aria-disabled={isMaintenanceRunning}
                               >
                                 Delete Derivative
                               </button>
@@ -502,20 +570,30 @@ export default function SettingsPage() {
           </section>
 
           {/* Health Section */}
-          <section className="bg-white rounded-lg shadow-sm p-6">
+          <section className="bg-white rounded-lg shadow-sm p-6" role="region" aria-labelledby="health-heading">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold">System Health</h2>
+              <h2 id="health-heading" className="text-xl font-semibold">System Health</h2>
               <button
                 onClick={fetchHealthStatus}
                 disabled={isHealthLoading}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+                aria-describedby="health-check-description"
+                aria-disabled={isHealthLoading}
               >
                 {isHealthLoading ? 'Checking...' : 'Check Health'}
               </button>
+              <span id="health-check-description" className="sr-only">
+                Run a comprehensive health check on all system services
+              </span>
             </div>
 
             {healthError && (
-              <div className="mb-4 p-4 bg-red-50 text-red-800 rounded-md">
+              <div 
+                className="mb-4 p-4 bg-red-50 text-red-800 rounded-md"
+                role="alert"
+                aria-live="assertive"
+                aria-atomic="true"
+              >
                 {healthError}
               </div>
             )}

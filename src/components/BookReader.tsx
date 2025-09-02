@@ -7,7 +7,12 @@ import dynamic from 'next/dynamic'
 const BookReaderComponent = dynamic(() => import('./BookReaderClient'), {
   ssr: false,
   loading: () => (
-    <div className="flex items-center justify-center h-96">
+    <div 
+      className="flex items-center justify-center h-96"
+      role="status"
+      aria-live="polite"
+      aria-label="Loading BookReader"
+    >
       <div className="text-lg">Loading BookReader...</div>
     </div>
   )
@@ -23,6 +28,7 @@ interface BookReaderProps {
 export default function BookReader({ identifier, fileName, title, onClose }: BookReaderProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const modalRef = useRef<HTMLDivElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
 
   const toggleFullscreen = async () => {
     if (!document.fullscreenElement) {
@@ -45,14 +51,34 @@ export default function BookReader({ identifier, fileName, title, onClose }: Boo
       setIsFullscreen(!!document.fullscreenElement)
     }
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && onClose) {
+        event.preventDefault()
+        onClose()
+      }
+    }
+
+    // Focus the close button when modal opens
+    if (closeButtonRef.current) {
+      closeButtonRef.current.focus()
+    }
+
     document.addEventListener('fullscreenchange', handleFullscreenChange)
+    document.addEventListener('keydown', handleKeyDown)
+    
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [])
+  }, [onClose])
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="bookreader-title"
+    >
       <div 
         ref={modalRef}
         className={`bg-white rounded-lg w-full h-full flex flex-col ${
@@ -61,14 +87,15 @@ export default function BookReader({ identifier, fileName, title, onClose }: Boo
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-xl font-semibold truncate">
+          <h2 id="bookreader-title" className="text-xl font-semibold truncate">
             {title || fileName}
           </h2>
           <div className="flex items-center gap-2">
             <button
               onClick={toggleFullscreen}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+              aria-label={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
             >
               {isFullscreen ? (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -81,9 +108,11 @@ export default function BookReader({ identifier, fileName, title, onClose }: Boo
               )}
             </button>
             <button
+              ref={closeButtonRef}
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               title="Close Reader"
+              aria-label="Close Reader"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

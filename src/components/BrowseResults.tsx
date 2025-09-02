@@ -280,11 +280,27 @@ export default function BrowseResults({
   return (
     <ErrorBoundary>
       <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Screen reader announcements for status changes */}
+        <div 
+          className="sr-only" 
+          role="status" 
+          aria-live="polite" 
+          aria-atomic="true"
+        >
+          {downloadingItems.size > 0 && `Downloading ${downloadingItems.size} item${downloadingItems.size > 1 ? 's' : ''}...`}
+          {ignoringItems.size > 0 && `Updating ${ignoringItems.size} item${ignoringItems.size > 1 ? 's' : ''}...`}
+        </div>
+        
         <h1 className="text-2xl font-bold mb-6">Browse Internet Archive</h1>
 
         {/* Error Display */}
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+          <div 
+            className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4"
+            role="alert"
+            aria-live="assertive"
+            aria-atomic="true"
+          >
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">

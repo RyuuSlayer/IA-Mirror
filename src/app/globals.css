@@ -8,6 +8,30 @@
   body {
     @apply bg-[#FAFAFA] text-[#333333] min-h-screen;
   }
+
+  /* Enhanced focus management */
+  *:focus {
+    @apply outline-none;
+  }
+
+  /* Visible focus indicators for keyboard navigation */
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  a:focus-visible,
+  [tabindex]:focus-visible {
+    @apply ring-2 ring-blue-500 ring-offset-2;
+  }
+
+  /* Skip link for screen readers */
+  .skip-link {
+    @apply absolute -top-10 left-4 bg-blue-600 text-white px-4 py-2 rounded-md z-50 transition-all;
+  }
+
+  .skip-link:focus {
+    @apply top-4;
+  }
 }
 
 @layer components {
@@ -41,5 +65,38 @@
 
   .item-card {
     @apply bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden;
+  }
+
+  /* Focus trap for modals */
+  .focus-trap {
+    @apply relative;
+  }
+
+  .focus-trap:before,
+  .focus-trap:after {
+    content: '';
+    @apply absolute w-0 h-0 opacity-0;
+    pointer-events: none;
+    tabindex: 0;
+  }
+
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    a:focus-visible {
+      @apply ring-4 ring-yellow-400;
+    }
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }

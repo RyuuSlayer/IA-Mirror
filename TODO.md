@@ -18,7 +18,7 @@
 - [x] Implement retry logic for failed network requests
 
 ### Low Priority
-- [ ] Add accessibility improvements (ARIA labels, keyboard navigation)
+- [x] Add accessibility improvements (ARIA labels, keyboard navigation)
 - [ ] Implement proper pagination for large result sets
 - [ ] Add compression for API responses
 - [ ] Optimize bundle size and implement code splitting

@@ -38,8 +38,8 @@ export default async function ItemPage({
 
   return (
     <div className="container-ia">
-      <div className="item-details">
-        <div className="item-header">
+      <main className="item-details">
+        <header className="item-header">
           <h1>{metadata.title}</h1>
           <div className="item-thumbnail-large">
             <ItemThumbnail
@@ -51,9 +51,9 @@ export default async function ItemPage({
               className="thumbnail"
             />
           </div>
-        </div>
+        </header>
 
-        <div className="item-metadata">
+        <section className="item-metadata">
           {metadata.description && (
             <div className="metadata-section">
               <h2>Description</h2>
@@ -124,8 +124,8 @@ export default async function ItemPage({
               </ul>
             </div>
           )}
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   )
 }

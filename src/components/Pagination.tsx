@@ -38,28 +38,85 @@ export default function Pagination({
   }
 
   return (
-    <div className="pagination">
-      {currentPage > 1 && (
-        <Link href={getPageUrl(currentPage - 1)} className="page-link">
-          Previous
-        </Link>
-      )}
+    <nav className="pagination" role="navigation" aria-label="Pagination navigation">
+      <ul className="flex items-center space-x-2">
+        {currentPage > 1 && (
+          <li>
+            <Link 
+              href={getPageUrl(currentPage - 1)} 
+              className="page-link focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-3 py-2"
+              aria-label={`Go to previous page, page ${currentPage - 1}`}
+            >
+              Previous
+            </Link>
+          </li>
+        )}
 
-      {pages.map(page => (
-        <Link
-          key={page}
-          href={getPageUrl(page)}
-          className={`page-link ${page === currentPage ? 'active' : ''}`}
-        >
-          {page}
-        </Link>
-      ))}
+        {currentPage > 3 && (
+          <>
+            <li>
+              <Link
+                href={getPageUrl(1)}
+                className="page-link focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-3 py-2"
+                aria-label="Go to first page, page 1"
+              >
+                1
+              </Link>
+            </li>
+            {currentPage > 4 && (
+              <li>
+                <span className="px-3 py-2 text-gray-500" aria-hidden="true">…</span>
+              </li>
+            )}
+          </>
+        )}
 
-      {currentPage < totalPages && (
-        <Link href={getPageUrl(currentPage + 1)} className="page-link">
-          Next
-        </Link>
-      )}
-    </div>
+        {pages.map(page => (
+          <li key={page}>
+            <Link
+              href={getPageUrl(page)}
+              className={`page-link focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-3 py-2 ${
+                page === currentPage ? 'active' : ''
+              }`}
+              aria-label={page === currentPage ? `Current page, page ${page}` : `Go to page ${page}`}
+              aria-current={page === currentPage ? 'page' : undefined}
+            >
+              {page}
+            </Link>
+          </li>
+        ))}
+
+        {currentPage < totalPages - 2 && (
+          <>
+            {currentPage < totalPages - 3 && (
+              <li>
+                <span className="px-3 py-2 text-gray-500" aria-hidden="true">…</span>
+              </li>
+            )}
+            <li>
+              <Link
+                href={getPageUrl(totalPages)}
+                className="page-link focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-3 py-2"
+                aria-label={`Go to last page, page ${totalPages}`}
+              >
+                {totalPages}
+              </Link>
+            </li>
+          </>
+        )}
+
+        {currentPage < totalPages && (
+          <li>
+            <Link 
+              href={getPageUrl(currentPage + 1)} 
+              className="page-link focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-3 py-2"
+              aria-label={`Go to next page, page ${currentPage + 1}`}
+            >
+              Next
+            </Link>
+          </li>
+        )}
+      </ul>
+    </nav>
   )
 }

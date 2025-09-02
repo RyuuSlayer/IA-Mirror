@@ -22,15 +22,20 @@ export default async function BrowsePage({
   const hideIgnored = params.hideIgnored === 'true'
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Browse Internet Archive</h1>
-      <BrowseResults
+    <main className="container mx-auto p-4">
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold">Browse Internet Archive</h1>
+        <p className="mt-2 text-gray-600">Search and discover content from the Internet Archive</p>
+      </header>
+      <section aria-label="Search results">
+        <BrowseResults
         initialQuery={query}
         initialMediaType={mediatype}
         initialSort={sort}
         initialHideDownloaded={hideDownloaded}
         initialHideIgnored={hideIgnored}
       />
-    </div>
+      </section>
+    </main>
   )
 }

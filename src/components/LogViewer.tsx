@@ -172,11 +172,13 @@ const LogViewer: React.FC<LogViewerProps> = ({ className = '', enableFileLogging
         {!showFileContent && (
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700">Level:</label>
+              <label htmlFor="log-level-select" className="text-sm font-medium text-gray-700">Level:</label>
               <select
+                id="log-level-select"
                 value={selectedLevel}
                 onChange={(e) => setSelectedLevel(e.target.value === 'all' ? 'all' : parseInt(e.target.value) as LogLevel)}
                 className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Filter logs by level"
               >
                 <option value="all">All Levels</option>
                 <option value={LogLevel.DEBUG}>Debug</option>
@@ -228,7 +230,12 @@ const LogViewer: React.FC<LogViewerProps> = ({ className = '', enableFileLogging
       
       <div className="h-96 overflow-auto" ref={logContainerRef}>
         {error && (
-          <div className="p-4 bg-red-50 border-l-4 border-red-400">
+          <div 
+            className="p-4 bg-red-50 border-l-4 border-red-400"
+            role="alert"
+            aria-live="assertive"
+            aria-atomic="true"
+          >
             <p className="text-red-700">{error}</p>
           </div>
         )}
@@ -246,7 +253,12 @@ const LogViewer: React.FC<LogViewerProps> = ({ className = '', enableFileLogging
         ) : (
           <div className="divide-y divide-gray-100">
             {logs.length === 0 && !loading ? (
-              <div className="p-8 text-center text-gray-500">
+              <div 
+                className="p-8 text-center text-gray-500"
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+              >
                 No logs available
               </div>
             ) : (
