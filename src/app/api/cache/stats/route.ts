@@ -79,7 +79,8 @@ export async function GET(): Promise<NextResponse<ApiResponse<CacheStatsResponse
       data: stats
     })
   } catch (error) {
-    log.error('Error getting cache stats', 'cache-stats-api', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error getting cache stats', 'cache-stats-api', { error: errorMessage }, error instanceof Error ? error : undefined)
     return NextResponse.json(
       {
         success: false,
@@ -107,7 +108,8 @@ export async function DELETE(): Promise<NextResponse<ApiResponse<{ cleared: stri
       }
     })
   } catch (error) {
-    log.error('Error clearing caches', 'cache-stats-api', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error clearing caches', 'cache-stats-api', { error: errorMessage }, error instanceof Error ? error : undefined)
     return NextResponse.json(
       {
         success: false,

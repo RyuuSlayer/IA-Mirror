@@ -1,4 +1,10 @@
 import Link from 'next/link'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: '404 - Page Not Found | Internet Archive Mirror',
+  description: 'The requested page could not be found.',
+}
 
 export default function NotFound() {
   return (
@@ -20,3 +26,7 @@ export default function NotFound() {
     </div>
   )
 }
+
+// Enable static generation for this page
+export const dynamic = 'force-static'
+export const revalidate = false

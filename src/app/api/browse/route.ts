@@ -18,7 +18,7 @@ import { searchCache, generateSearchCacheKey } from '@/lib/cache'
 import { log } from '@/lib/logger'
 import type { BrowseResponse, SearchParams, ApiResponse } from '@/types/api'
 
-const log = debug('ia-mirror:api:browse')
+const debugLog = debug('ia-mirror:api:browse')
 const ignoredItemsPath = path.join(process.cwd(), 'ignored-items.json')
 
 // Load ignored items from file
@@ -29,7 +29,8 @@ function loadIgnoredItems(): Set<string> {
       return new Set(items)
     }
   } catch (error) {
-    log.error('Error loading ignored items', 'browse-api', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error loading ignored items', 'browse-api', { error: errorMessage }, error instanceof Error ? error : undefined)
   }
   return new Set()
 }
@@ -115,12 +116,12 @@ export async function GET(request: NextRequest): Promise<NextResponse<BrowseResp
 
     // Mark downloaded and ignored items, then filter
     const items = searchResults.items
-      .map(item => ({
+      .map((item: any) => ({
         ...item,
         downloaded: localIdentifiers.has(item.identifier),
         ignored: ignoredIdentifiers.has(item.identifier)
       }))
-      .filter(item => {
+      .filter((item: any) => {
         if (hideDownloaded && item.downloaded) return false
         if (hideIgnored && item.ignored) return false
         return true
@@ -136,7 +137,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<BrowseResp
     return NextResponse.json(response)
 
   } catch (error) {
-    log.error('Browse API error', 'browse-api', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Browse API error', 'browse-api', { error: errorMessage }, error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to fetch items' },
       { status: 500 }

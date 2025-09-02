@@ -54,7 +54,8 @@ export default function ItemsList({ items = [] }: ItemsListProps) {
                 return { ...item, files: data.files }
               }
             } catch (error) {
-              log.error('Error fetching files for item', 'items-list', { identifier: item.identifier, error: error.message }, error)
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+              log.error('Error fetching files for item', 'items-list', { identifier: item.identifier, error: errorMessage }, error instanceof Error ? error : undefined)
             }
             return item
           })
@@ -63,7 +64,8 @@ export default function ItemsList({ items = [] }: ItemsListProps) {
           setItemsWithFiles(updatedItems.filter(Boolean))
         }
       } catch (error) {
-        log.error('Error fetching files', 'items-list', { error: error.message }, error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        log.error('Error fetching files', 'items-list', { error: errorMessage }, error instanceof Error ? error : undefined)
       } finally {
         if (mounted) {
           setIsLoading(false)
@@ -122,7 +124,8 @@ export default function ItemsList({ items = [] }: ItemsListProps) {
         )
       )
     } catch (error) {
-      log.error('Download error', 'items-list', { identifier, error: error.message }, error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      log.error('Download error', 'items-list', { identifier, error: errorMessage }, error instanceof Error ? error : undefined)
     } finally {
       setDownloadingItems(prev => {
         const next = new Set(prev)

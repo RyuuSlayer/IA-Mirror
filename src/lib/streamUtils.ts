@@ -29,7 +29,7 @@ export interface StreamOperationResult {
  */
 export function safeCloseStream(stream: NodeJS.ReadableStream | NodeJS.WritableStream): Promise<void> {
   return new Promise((resolve) => {
-    if (!stream || stream.destroyed) {
+    if (!stream || ('destroyed' in stream && stream.destroyed)) {
       resolve()
       return
     }

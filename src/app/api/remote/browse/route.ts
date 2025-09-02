@@ -19,7 +19,8 @@ function loadIgnoredItems(): Set<string> {
       return new Set(items)
     }
   } catch (error) {
-    logger.error('Error loading ignored items', 'remote-browse-api', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    logger.error('Error loading ignored items', 'remote-browse-api', { error: errorMessage }, error instanceof Error ? error : undefined)
   }
   return new Set()
 }
@@ -120,7 +121,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<BrowseResp
     })
 
   } catch (error) {
-    logger.error('Browse API error', 'remote-browse-api', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    logger.error('Browse API error', 'remote-browse-api', { error: errorMessage }, error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to fetch items' },
       { status: 500 }

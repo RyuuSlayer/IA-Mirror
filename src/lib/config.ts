@@ -36,7 +36,7 @@ function ensureConfigExists(): void {
       
       logger.info('Created default config.json with sensible defaults', 'Config')
     } catch (error) {
-      logger.warn('Could not create default config.json', 'Config', { error: error.message })
+      logger.warn('Could not create default config.json', 'Config', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 }
@@ -67,15 +67,17 @@ export function readSettings(): Settings {
       storagePath: settings.storagePath || path.join(process.cwd(), 'cache'),
       maxConcurrentDownloads: settings.maxConcurrentDownloads || 3,
       skipHashCheck: settings.skipHashCheck || false,
-      baseUrl: settings.baseUrl || 'http://localhost:3000'
+      baseUrl: settings.baseUrl || 'http://localhost:3000',
+      enableFileLogging: settings.enableFileLogging || false
     }
   }
-  
+
   return { 
     storagePath: path.join(process.cwd(), 'cache'),
     maxConcurrentDownloads: 3,
     skipHashCheck: false,
-    baseUrl: 'http://localhost:3000'
+    baseUrl: 'http://localhost:3000',
+    enableFileLogging: false
   }
 }
 
@@ -83,7 +85,7 @@ export function writeSettings(settings: Settings): boolean {
   try {
     return writeJsonFileAtomic(CONFIG_FILE, settings)
   } catch (error) {
-    logger.error('Error writing settings', 'Config', { error: error.message }, error)
+    logger.error('Error writing settings', 'Config', { error: error instanceof Error ? error.message : String(error) }, error instanceof Error ? error : undefined)
     return false
   }
 }
@@ -99,7 +101,7 @@ export async function getConfig(): Promise<Config> {
     try {
       fs.mkdirSync(cacheDir, { recursive: true })
     } catch (error) {
-      logger.error('Failed to create cache directory', 'Config', { cacheDir, error: error.message }, error)
+      logger.error('Failed to create cache directory', 'Config', { cacheDir, error: error instanceof Error ? error.message : String(error) }, error instanceof Error ? error : undefined)
       // If we can't create the configured directory, fall back to default
       return {
         cacheDir: path.join(process.cwd(), 'cache'),

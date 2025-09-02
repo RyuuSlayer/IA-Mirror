@@ -67,7 +67,7 @@ export async function retryWithBackoff<T>(
         opts.maxDelay
       )
       
-      log.warn(`Request failed (attempt ${attempt + 1}/${opts.maxRetries + 1}), retrying in ${delay}ms`, 'retry', { attempt: attempt + 1, maxRetries: opts.maxRetries + 1, delay, error: error.message }, error)
+      log.warn(`Request failed (attempt ${attempt + 1}/${opts.maxRetries + 1}), retrying in ${delay}ms`, 'retry', { attempt: attempt + 1, maxRetries: opts.maxRetries + 1, delay, error: error instanceof Error ? error.message : String(error) })
       
       // Wait before retrying
       await new Promise(resolve => setTimeout(resolve, delay))

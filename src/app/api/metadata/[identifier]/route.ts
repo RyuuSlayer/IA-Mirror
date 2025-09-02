@@ -86,18 +86,19 @@ export async function GET(
     const download = url.searchParams.get('download')
     
     if (download) {
-      try {
-        // Validate file name
-        if (!validateFileName(download)) {
-          log.warn('Invalid file name', 'metadata', { download, identifier })
-          return NextResponse.json(
-            { error: 'Invalid file name' },
-            { status: 400 }
-          )
-        }
+      // Validate file name
+      if (!validateFileName(download)) {
+        log.warn('Invalid file name', 'metadata', { download, identifier })
+        return NextResponse.json(
+          { error: 'Invalid file name' },
+          { status: 400 }
+        )
+      }
 
-        // Sanitize file path to prevent directory traversal
-        const downloadPath = sanitizeFilePath(download, itemPath)
+      // Sanitize file path to prevent directory traversal
+      const downloadPath = sanitizeFilePath(download, itemPath)
+      
+      try {
         if (!downloadPath) {
           log.warn('Path traversal attempt detected', 'metadata', { download, identifier })
           return NextResponse.json(
@@ -134,7 +135,8 @@ export async function GET(
           headers,
         })
       } catch (err) {
-        log.error('Error reading file', 'metadata', { downloadPath, identifier, error: err.message }, err)
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+        log.error('Error reading file', 'metadata', { downloadPath, identifier, error: errorMessage }, err instanceof Error ? err : undefined)
         return NextResponse.json(
           { error: 'Failed to read file' },
           { status: 500 }
@@ -181,7 +183,8 @@ export async function GET(
           log.error('Failed to fetch fresh metadata', 'metadata', { identifier, status: iaResponse.status, error: errorText })
         }
       } catch (error) {
-        log.error('Error fetching fresh metadata', 'metadata', { identifier, error: error.message }, error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        log.error('Error fetching fresh metadata', 'metadata', { identifier, error: errorMessage }, error instanceof Error ? error : undefined)
         // Fall back to local metadata if fetch fails
       }
     }
@@ -197,7 +200,8 @@ export async function GET(
         // Cache the local metadata for future requests
         await metadataCache.set(cacheKey, metadata)
       } catch (error) {
-        log.error('Error reading local metadata', 'metadata', { metadataPath, identifier, error: error.message }, error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        log.error('Error reading local metadata', 'metadata', { metadataPath, identifier, error: errorMessage }, error instanceof Error ? error : undefined)
         return NextResponse.json(
           { error: 'Failed to read metadata' },
           { status: 500 }
@@ -281,7 +285,8 @@ export async function GET(
     return NextResponse.json(response)
 
   } catch (error) {
-    log.error('Error in metadata API', 'metadata', { identifier, error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error in metadata API', 'metadata', { error: errorMessage }, error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }

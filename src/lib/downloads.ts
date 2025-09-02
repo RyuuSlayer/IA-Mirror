@@ -24,7 +24,7 @@ export function writeDownloads(downloads: DownloadItem[]): boolean {
   try {
     return writeJsonFileAtomic(DOWNLOADS_FILE, downloads)
   } catch (error) {
-    logger.error('Error writing downloads', 'Downloads', { error: error.message }, error)
+    logger.error('Error writing downloads', 'Downloads', { error: error instanceof Error ? error.message : String(error) }, error instanceof Error ? error : undefined)
     
     // Throw specific error based on the type of failure
     if (error instanceof SyntaxError) {
@@ -70,7 +70,7 @@ export function updateDownloadStatus(identifier: string, updates: Partial<Downlo
     if (error instanceof ValidationError || error instanceof FileSystemError) {
       throw error
     }
-    logger.error('Error updating download status', 'Downloads', { identifier, error: error.message }, error)
+    logger.error('Error updating download status', 'Downloads', { identifier, error: error instanceof Error ? error.message : String(error) }, error instanceof Error ? error : undefined)
     throw new FileSystemError(`Failed to update download status: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
@@ -134,7 +134,7 @@ export async function queueDownloadDirect(identifier: string, title: string, fil
     try {
       await startNextQueuedDownload()
     } catch (error) {
-      logger.error('Error starting next download', 'Downloads', { error: error.message }, error)
+      logger.error('Error starting next download', 'Downloads', { error: error instanceof Error ? error.message : String(error) }, error instanceof Error ? error : undefined)
       // Don't throw here - the download is queued even if starting fails
     }
     
@@ -143,7 +143,7 @@ export async function queueDownloadDirect(identifier: string, title: string, fil
     if (error instanceof ValidationError || error instanceof FileSystemError) {
       throw error
     }
-    logger.error('Error queuing download directly', 'Downloads', { identifier, file, error: error.message }, error)
+    logger.error('Error queuing download directly', 'Downloads', { identifier, file, error: error instanceof Error ? error.message : String(error) }, error instanceof Error ? error : undefined)
     throw new FileSystemError(`Failed to queue download: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
@@ -166,6 +166,6 @@ async function startNextQueuedDownload() {
       logger.error('Failed to trigger download queue processing', 'Downloads', { status: response.status })
     }
   } catch (error) {
-    logger.error('Error triggering download queue processing', 'Downloads', { error: error.message }, error)
+    logger.error('Error triggering download queue processing', 'Downloads', { error: error instanceof Error ? error.message : String(error) }, error instanceof Error ? error : undefined)
   }
 }

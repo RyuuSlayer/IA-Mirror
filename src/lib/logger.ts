@@ -194,7 +194,7 @@ class Logger {
       }
       return null
     } catch (error) {
-      this.error('Failed to read log file', 'Logger', { error: error.message })
+      this.error('Failed to read log file', 'Logger', { error: error instanceof Error ? error.message : String(error) })
       return null
     }
   }

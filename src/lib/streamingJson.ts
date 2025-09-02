@@ -72,9 +72,9 @@ export async function readJsonFileStreaming(
         }
       }
       
-      stream.on('data', (chunk: Buffer) => {
+      stream.on('data', (chunk: string | Buffer) => {
         if (hasError) return
-        data += chunk.toString('utf8')
+        data += typeof chunk === 'string' ? chunk : chunk.toString('utf8')
       })
       
       stream.on('end', handleComplete)

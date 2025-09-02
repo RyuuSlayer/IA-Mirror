@@ -1,11 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { searchItems } from '@/lib/archive'
-import { retryFetch, RETRY_CONFIGS } from '@/lib/retryFetch'
-import type { SearchResult, SearchResponse } from '@/types/api'
+import { retryFetch, RETRY_CONFIGS } from '@/lib/retry'
+import type { SearchResult, BrowseResponse } from '@/types/api'
 import ItemThumbnail from './ItemThumbnail'
-import SkeletonLoader from './SkeletonLoader'
 import ErrorBoundary from './ErrorBoundary'
 import VirtualizedList, { useVirtualizedPagination } from './VirtualizedList'
 import { log } from '@/lib/logger'
@@ -47,18 +45,15 @@ export default function VirtualizedBrowseResults({
 
       const response = await retryFetch(
         `/api/remote/browse?${params}`,
-        RETRY_CONFIGS.search
+        {},
+        RETRY_CONFIGS.METADATA
       )
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
-      const data: SearchResponse = await response.json()
-      
-      if (data.error) {
-        throw new Error(data.error)
-      }
+      const data: BrowseResponse = await response.json()
 
       return {
         items: data.items || [],
@@ -66,7 +61,7 @@ export default function VirtualizedBrowseResults({
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      log.error('Search failed', 'virtualized-browse-results', { error: errorMessage, query, mediatype, sort }, error)
+      log.error('Search failed', 'virtualized-browse-results', { error: errorMessage, query, mediatype, sort }, error instanceof Error ? error : undefined)
       setError(errorMessage)
       throw error
     }
@@ -96,10 +91,12 @@ export default function VirtualizedBrowseResults({
       return (
         <div className="p-4 border-b border-gray-200">
           <ItemThumbnail
-            item={item}
-            showDownloadButton={true}
-            showIgnoreButton={true}
-            priority={index < 10}
+            identifier={item.identifier}
+            thumbnailFile={item.thumbnailUrl}
+            title={item.title}
+            className="object-cover rounded"
+            width={200}
+            height={200}
           />
         </div>
       )
@@ -108,11 +105,12 @@ export default function VirtualizedBrowseResults({
         <div className="p-4 border-b border-gray-200 flex items-center gap-4">
           <div className="flex-shrink-0 w-16 h-16">
             <ItemThumbnail
-              item={item}
-              showDownloadButton={false}
-              showIgnoreButton={false}
-              priority={index < 10}
-              compact={true}
+              identifier={item.identifier}
+              thumbnailFile={item.thumbnailUrl}
+              title={item.title}
+              className="object-cover rounded"
+              width={64}
+              height={64}
             />
           </div>
           <div className="flex-grow min-w-0">
@@ -131,14 +129,13 @@ export default function VirtualizedBrowseResults({
               )}
             </div>
           </div>
-          <div className="flex-shrink-0">
-            <ItemThumbnail
-              item={item}
-              showDownloadButton={true}
-              showIgnoreButton={true}
-              priority={false}
-              actionsOnly={true}
-            />
+          <div className="flex-shrink-0 flex gap-2">
+            <button className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
+              Download
+            </button>
+            <button className="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700">
+              Ignore
+            </button>
           </div>
         </div>
       )

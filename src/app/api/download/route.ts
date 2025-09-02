@@ -98,7 +98,8 @@ async function fetchMetadata(identifier: string) {
     
     return metadata
   } catch (error) {
-    log.error('Error fetching metadata', 'download', { identifier, error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error fetching metadata', 'download', { identifier, error: errorMessage }, error instanceof Error ? error : undefined)
     return null
   }
 }
@@ -205,23 +206,24 @@ async function startDownload(downloadItem: DownloadItem) {
       })
     })
   } catch (error) {
-    log.error('Error starting download', 'download', { identifier: downloadItem.identifier, error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error starting download', 'download', { identifier: downloadItem.identifier, error: errorMessage }, error instanceof Error ? error : undefined)
     
     // Update download status with specific error
-    let errorMessage = 'Unknown error'
+    let downloadErrorMessage = 'Unknown error'
     if (error instanceof MetadataError) {
-      errorMessage = `Metadata error: ${error.message}`
+      downloadErrorMessage = `Metadata error: ${error.message}`
     } else if (error instanceof FileSystemError) {
-      errorMessage = `File system error: ${error.message}`
+      downloadErrorMessage = `File system error: ${error.message}`
     } else if (error instanceof ProcessError) {
-      errorMessage = `Process error: ${error.message}`
+      downloadErrorMessage = `Process error: ${error.message}`
     } else if (error instanceof Error) {
-      errorMessage = error.message
+      downloadErrorMessage = error.message
     }
     
     updateDownloadStatus(downloadItem.identifier, {
       status: 'failed',
-      error: errorMessage,
+      error: downloadErrorMessage,
       pid: undefined
     })
     
@@ -296,7 +298,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<DownloadIt
 
     return NextResponse.json(downloadsWithPaths)
   } catch (error) {
-    log.error('Error in GET /api/download', 'download', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error in GET /api/download', 'download', { error: errorMessage }, error instanceof Error ? error : undefined)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -403,7 +406,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
             process.kill()
             delete activeProcesses[download.identifier]
           } catch (error) {
-            log.error('Error killing process', 'download', { identifier: download.identifier, error: error.message }, error)
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+            log.error('Error killing process', 'download', { identifier: download.identifier, error: errorMessage }, error instanceof Error ? error : undefined)
           }
         }
       }
@@ -431,7 +435,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
               process.kill()
               delete activeProcesses[download.identifier]
             } catch (error) {
-              log.error('Error killing process', 'download', { identifier: download.identifier, error: error.message }, error)
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+              log.error('Error killing process', 'download', { identifier: download.identifier, error: errorMessage }, error instanceof Error ? error : undefined)
             }
           }
         }
@@ -492,7 +497,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       try {
         await startNextQueuedDownload()
       } catch (error) {
-        log.error('Error starting download', 'download', { identifier, error: error.message }, error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        log.error('Error starting download', 'download', { identifier, error: errorMessage }, error instanceof Error ? error : undefined)
         // Don't throw here - the download is queued even if it fails to start immediately
       }
       return NextResponse.json({ success: true })
@@ -500,7 +506,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
     throw new ValidationError(`Invalid action: ${action}`)
   } catch (error) {
-    log.error('Error in POST /api/download', 'download', { error: error.message }, error)
-    return handleApiError(error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error in POST /api/download', 'download', { error: errorMessage }, error instanceof Error ? error : undefined)
+    const apiError = handleApiError(error)
+    return NextResponse.json({ error: apiError.message }, { status: apiError.statusCode })
   }
 }

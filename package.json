@@ -40,6 +40,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:static": "NEXT_PUBLIC_STATIC_EXPORT=true next build",
+    "analyze": "ANALYZE=true next build",
     "start": "next start",
     "lint": "next lint",
     "install-service": "node windows-service.js install",

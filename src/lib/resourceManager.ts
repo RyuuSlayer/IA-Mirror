@@ -118,7 +118,7 @@ export class ResourceManager implements Disposable {
     const errors: Error[] = []
 
     // Clear all timers
-    for (const timer of this.timers) {
+    for (const timer of Array.from(this.timers)) {
       try {
         clearTimeout(timer)
       } catch (error) {
@@ -128,7 +128,7 @@ export class ResourceManager implements Disposable {
     this.timers.clear()
 
     // Clear all intervals
-    for (const interval of this.intervals) {
+    for (const interval of Array.from(this.intervals)) {
       try {
         clearInterval(interval)
       } catch (error) {
@@ -138,7 +138,7 @@ export class ResourceManager implements Disposable {
     this.intervals.clear()
 
     // Run cleanup functions
-    for (const cleanup of this.cleanupFunctions) {
+    for (const cleanup of Array.from(this.cleanupFunctions)) {
       try {
         await cleanup()
       } catch (error) {
@@ -149,7 +149,7 @@ export class ResourceManager implements Disposable {
     this.cleanupFunctions.clear()
 
     // Dispose of resources
-    for (const resource of this.resources) {
+    for (const resource of Array.from(this.resources)) {
       try {
         await resource.dispose()
       } catch (error) {

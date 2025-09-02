@@ -16,7 +16,8 @@ function loadIgnoredItems(): Set<string> {
       return new Set(items)
     }
   } catch (error) {
-    log.error('Error loading ignored items', 'ignored-api', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error loading ignored items', 'ignored-api', { error: errorMessage }, error instanceof Error ? error : undefined)
   }
   return new Set()
 }
@@ -27,7 +28,8 @@ function saveIgnoredItems(ignoredItems: Set<string>) {
     const items = Array.from(ignoredItems)
     fs.writeFileSync(ignoredItemsPath, JSON.stringify(items, null, 2))
   } catch (error) {
-    log.error('Error saving ignored items', 'ignored-api', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error saving ignored items', 'ignored-api', { error: errorMessage }, error instanceof Error ? error : undefined)
     throw error
   }
 }
@@ -38,7 +40,8 @@ export async function GET(): Promise<NextResponse<string[] | ApiResponse>> {
     const ignoredItems = loadIgnoredItems()
     return NextResponse.json(Array.from(ignoredItems))
   } catch (error) {
-    log.error('Error getting ignored items', 'ignored-api', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error getting ignored items', 'ignored-api', { error: errorMessage }, error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to get ignored items' },
       { status: 500 }
@@ -78,7 +81,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       ignored: ignoredItems.has(identifier)
     })
   } catch (error) {
-    log.error('Error updating ignored items', 'ignored-api', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error updating ignored items', 'ignored-api', { error: errorMessage }, error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to update ignored items' },
       { status: 500 }

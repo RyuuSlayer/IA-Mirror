@@ -31,7 +31,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<CsrfTokenR
     
     return response
   } catch (error) {
-    log.error('CSRF token generation error', 'csrf-api', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('CSRF token generation error', 'csrf-api', { error: errorMessage }, error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to generate CSRF token' } as any,
       { status: 500 }

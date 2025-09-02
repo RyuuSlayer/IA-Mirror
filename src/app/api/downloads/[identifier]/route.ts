@@ -27,7 +27,8 @@ export async function DELETE(
       try {
         process.kill(download.pid)
       } catch (error) {
-        log.error('Error killing download process', 'downloads-api', { identifier, pid: download.pid, error: error.message }, error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        log.error('Error killing download process', 'downloads-api', { identifier, pid: download.pid, error: errorMessage }, error instanceof Error ? error : undefined)
       }
     }
 
@@ -37,7 +38,8 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    log.error('Error deleting download', 'downloads-api', { identifier, error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error deleting download', 'downloads-api', { error: errorMessage }, error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -74,7 +76,8 @@ export async function PATCH(
 
     return NextResponse.json(downloads[downloadIndex])
   } catch (error) {
-    log.error('Error updating download', 'downloads-api', { identifier, error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error updating download', 'downloads-api', { error: errorMessage }, error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

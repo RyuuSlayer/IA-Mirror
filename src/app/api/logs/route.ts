@@ -42,7 +42,8 @@ export async function GET(request: NextRequest) {
       total: logs.length
     })
   } catch (error) {
-    logger.error('Error fetching logs', 'LogsAPI', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    logger.error('Error fetching logs', 'LogsAPI', { error: errorMessage }, error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch logs' },
       { status: 500 }
@@ -60,7 +61,8 @@ export async function DELETE() {
       message: 'Logs cleared successfully'
     })
   } catch (error) {
-    logger.error('Error clearing logs', 'LogsAPI', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    logger.error('Error clearing logs', 'LogsAPI', { error: errorMessage }, error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to clear logs' },
       { status: 500 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { FixedSizeList as List } from 'react-window'
+import { List, RowComponentProps, ListImperativeAPI } from 'react-window'
 import type { LocalItem, SearchResult } from '@/types/api'
 
 interface VirtualizedListProps {
@@ -22,12 +22,8 @@ interface ItemData {
   hasNextPage?: boolean
 }
 
-const VirtualizedItem = ({ index, style, data }: {
-  index: number
-  style: React.CSSProperties
-  data: ItemData
-}) => {
-  const { items, renderItem, onLoadMore, hasNextPage } = data
+const VirtualizedItem = ({ index, style, ...rowProps }: { index: number; style: React.CSSProperties } & ItemData) => {
+    const { items, renderItem, onLoadMore, hasNextPage } = rowProps
   const item = items[index]
 
   // Trigger load more when approaching the end
@@ -62,15 +58,22 @@ export default function VirtualizedList({
   hasNextPage = false,
   className = ''
 }: VirtualizedListProps) {
-  const listRef = useRef<List>(null)
+  const listRef = useRef<ListImperativeAPI>(null)
   const [isScrolling, setIsScrolling] = useState(false)
 
   const itemData = useMemo(() => ({
     items,
     renderItem,
     onLoadMore,
-    hasNextPage
+    hasNextPage: hasNextPage ?? false
   }), [items, renderItem, onLoadMore, hasNextPage])
+
+  const onItemsRendered = useCallback(({ startIndex, stopIndex }: { startIndex: number; stopIndex: number }) => {
+    // Trigger load more when approaching the end
+    if (onLoadMore && hasNextPage && stopIndex >= items.length - 5) {
+      onLoadMore()
+    }
+  }, [onLoadMore, hasNextPage, items.length])
 
   const handleScroll = useCallback(() => {
     setIsScrolling(true)
@@ -89,16 +92,16 @@ export default function VirtualizedList({
         </div>
       ) : (
         <List
-          ref={listRef}
-          height={containerHeight}
-          itemCount={totalItems}
-          itemSize={itemHeight}
-          itemData={itemData}
-          onScroll={handleScroll}
+          listRef={listRef}
+          defaultHeight={containerHeight}
+          rowCount={totalItems}
+          rowHeight={itemHeight}
+          rowProps={itemData}
+          rowComponent={VirtualizedItem}
+          onRowsRendered={onItemsRendered}
           className="scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
-        >
-          {VirtualizedItem}
-        </List>
+          style={{ height: containerHeight }}
+        />
       )}
       
       {/* Scrolling indicator */}

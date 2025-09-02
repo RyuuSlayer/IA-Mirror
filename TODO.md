@@ -1,26 +1,35 @@
 - Get collection browsing to work.
+- Handle torrent files as derivatives.
 
 ## Code Quality & Performance Improvements
 
-### High Priority
-- [x] Replace console.log statements with proper logging system (found 100+ instances)
-- [x] Remove hardcoded localhost:3000 URLs and make them configurable
-- [x] Add proper TypeScript types for API responses and metadata structures
-- [x] Implement proper error handling instead of generic try-catch blocks
-- [x] Add loading states and better UX for long-running operations
-
-### Medium Priority
-- [x] Extract hardcoded file paths (S:\Internet Archive, C:\archiveorg) to configuration
-- [x] Implement proper caching strategy for metadata and API responses
-- [x] Add input debouncing for search functionality
-- [x] Optimize file reading operations (currently reading entire files into memory)
-- [x] Add proper cleanup for file streams and resources
-- [x] Implement retry logic for failed network requests
-
 ### Low Priority
-- [x] Add accessibility improvements (ARIA labels, keyboard navigation)
-- [x] Implement proper pagination for large result sets
 - [ ] Add compression for API responses
 - [ ] Optimize bundle size and implement code splitting
 - [ ] Add proper documentation for API endpoints
-- [x] Implement proper health checks for the application
+
+## Next.js Modern Features Implementation
+
+### High Priority
+- [ ] Implement Server Components for static content (replace client components where possible)
+- [ ] Add React Server Actions for form submissions and data mutations
+- [ ] Implement Partial Prerendering (PPR) for improved performance
+- [ ] Use Next.js 15 turbopack for faster development builds
+
+### Medium Priority
+- [ ] Implement Streaming SSR with loading.tsx boundaries for better UX
+- [ ] Add Route Groups for better organization (e.g., (dashboard), (auth))
+- [ ] Implement Parallel Routes for complex layouts with multiple data sources
+- [ ] Use Next.js Image optimization with placeholder="blur" for better loading
+- [ ] Implement Intercepting Routes for modal-like experiences
+- [ ] Add Server-side form validation with Server Actions
+- [ ] Use React 19 useOptimistic hook for optimistic UI updates
+
+### Low Priority
+- [x] Implement Next.js Middleware for advanced routing and authentication
+- [x] Add Static Exports for portions that can be pre-generated
+- [ ] Use React 19 use() hook for data fetching in components
+- [ ] Implement Next.js Draft Mode for content preview
+- [ ] Add Edge Runtime for API routes where applicable
+- [ ] Use React 19 useActionState for better form state management
+- [ ] Implement Next.js Analytics for performance monitoring

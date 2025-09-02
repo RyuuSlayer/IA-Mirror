@@ -111,7 +111,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
     return createSuccessResponse()
   } catch (error) {
-    log.error('Error saving settings', 'settings-api', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error saving settings', 'settings-api', { error: errorMessage }, error instanceof Error ? error : undefined)
     return createErrorResponse('Failed to save settings', 500)
   }
 }

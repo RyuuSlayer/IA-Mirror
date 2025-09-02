@@ -104,7 +104,8 @@ export default function SettingsPage() {
         setHealthError('Failed to fetch health status')
       }
     } catch (error) {
-      log.error('Error fetching health status', 'settings-page', { error: error.message }, error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      log.error('Error fetching health status', 'settings-page', { error: errorMessage }, error instanceof Error ? error : undefined)
       setHealthError('Failed to fetch health status')
     } finally {
       setIsHealthLoading(false)
@@ -143,7 +144,8 @@ export default function SettingsPage() {
         })
       }
     } catch (error) {
-      log.error('Error fetching settings', 'settings-page', { error: error.message }, error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      log.error('Error fetching settings', 'settings-page', { error: errorMessage }, error instanceof Error ? error : undefined)
       setError('Failed to load settings')
     } finally {
       setIsLoading(false)
@@ -175,7 +177,8 @@ export default function SettingsPage() {
         setError(data.error || 'Failed to save settings')
       }
     } catch (error) {
-      log.error('Error saving settings', 'settings-page', { error: error.message }, error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      log.error('Error saving settings', 'settings-page', { error: errorMessage }, error instanceof Error ? error : undefined)
       setError('Failed to save settings')
     }
   }
@@ -268,7 +271,8 @@ export default function SettingsPage() {
         setError(errorData.error || 'Maintenance operation failed')
       }
     } catch (error) {
-      log.error('Error during maintenance', 'settings-page', { error: error.message }, error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      log.error('Error during maintenance', 'settings-page', { error: errorMessage }, error instanceof Error ? error : undefined)
       setError('Maintenance operation failed')
     } finally {
       setIsMaintenanceRunning(false)

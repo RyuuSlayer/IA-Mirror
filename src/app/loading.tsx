@@ -1,3 +1,10 @@
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Loading... | Internet Archive Mirror',
+  description: 'Content is loading, please wait.',
+}
+
 export default function Loading() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#FAFAFA]">
@@ -8,3 +15,7 @@ export default function Loading() {
     </div>
   )
 }
+
+// Enable static generation for this page
+export const dynamic = 'force-static'
+export const revalidate = false

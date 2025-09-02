@@ -80,7 +80,8 @@ export async function GET(): Promise<NextResponse<ApiResponse>> {
     
     return NextResponse.json({ success: true, message: 'No queued downloads' })
   } catch (error) {
-    log.error('Error processing download queue', 'download-process', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error processing download queue', 'download-process', { error: errorMessage }, error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to process download queue' },
       { status: 500 }

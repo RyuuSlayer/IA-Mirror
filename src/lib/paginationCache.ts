@@ -83,7 +83,7 @@ class PaginationCache<T> {
   // Remove expired entries
   cleanup(): void {
     const now = Date.now()
-    for (const [key, entry] of this.cache.entries()) {
+    for (const [key, entry] of Array.from(this.cache.entries())) {
       if (now > entry.expiresAt) {
         this.cache.delete(key)
       }
@@ -115,7 +115,7 @@ class PaginationCache<T> {
   invalidatePattern(pattern: Partial<Record<string, any>>): void {
     const patternKeys = Object.keys(pattern)
     
-    for (const [key] of this.cache.entries()) {
+    for (const [key] of Array.from(this.cache.entries())) {
       const keyParams = this.parseKey(key)
       const matches = patternKeys.every(patternKey => 
         keyParams[patternKey] === pattern[patternKey]

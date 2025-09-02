@@ -89,7 +89,8 @@ function findFileInDirectory(directory: string, originalFilename: string): strin
       return subDirs === '.' ? foundFile : path.join(subDirs, foundFile)
     }
   } catch (error) {
-    log.error('Error reading directory', 'maintenance', { targetDir, error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error reading directory', 'maintenance', { targetDir, error: errorMessage }, error instanceof Error ? error : undefined)
   }
 
   log.debug('File not found in either format', 'maintenance', { originalFilename, sanitizedFilename })
@@ -120,7 +121,8 @@ async function queueDownload(identifier: string, filename: string, isDerivative:
       return false
     }
   } catch (error) {
-    log.error('Error queueing download', 'maintenance', { identifier, filename, error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error queueing download', 'maintenance', { identifier, filename, error: errorMessage }, error instanceof Error ? error : undefined)
     return false
   }
 }
@@ -143,7 +145,8 @@ async function getStoragePath(): Promise<string> {
     const settings = await response.json()
     return settings.storagePath
   } catch (error) {
-    log.error('Error getting storage path', 'maintenance', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error getting storage path', 'maintenance', { error: errorMessage }, error instanceof Error ? error : undefined)
     return ''
   }
 }
@@ -236,7 +239,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
             }, RETRY_CONFIGS.METADATA)
             log.info('Successfully refreshed metadata', 'maintenance', { item })
           } catch (error) {
-            log.error('Error refreshing metadata', 'maintenance', { item, error: error.message }, error)
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+            log.error('Error refreshing metadata', 'maintenance', { item, error: errorMessage }, error instanceof Error ? error : undefined)
           }
         }
       }
@@ -308,7 +312,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
               }
             }
           } catch (error) {
-            log.error('Error checking files', 'maintenance', { item, error: error.message }, error)
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+            log.error('Error checking files', 'maintenance', { item, error: errorMessage }, error instanceof Error ? error : undefined)
           }
         }
       }
@@ -484,7 +489,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
               }
             }
           } catch (error) {
-            log.error('Error checking derivatives', 'maintenance', { item, error: error.message }, error)
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+            log.error('Error checking derivatives', 'maintenance', { item, error: errorMessage }, error instanceof Error ? error : undefined)
           }
         }
       }
@@ -535,9 +541,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
               log.warn('Derivative file not found for deletion', 'maintenance', { filePath, item: issue.item, file: issue.file })
             }
           } catch (error) {
-            log.error('Error deleting derivative file', 'maintenance', { item: issue.item, file: issue.file, error: error.message }, error)
-            const errorMessage = error instanceof Error ? error.message : String(error)
-            failedFiles.push(`${issue.item}/${issue.file} (${errorMessage})`)
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+            log.error('Error deleting derivative file', 'maintenance', { item: issue.item, file: issue.file, error: errorMessage }, error instanceof Error ? error : undefined)
+            const errorMessageForFailed = error instanceof Error ? error.message : String(error)
+            failedFiles.push(`${issue.item}/${issue.file} (${errorMessageForFailed})`)
           }
         }
       }
@@ -582,19 +589,21 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
           results.success = false
         }
       } catch (error) {
-        log.error('Error deleting single derivative', 'maintenance', { identifier, filename, error: error.message }, error)
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        results.error = `Failed to delete ${identifier}/${filename}: ${errorMessage}`
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        log.error('Error deleting single derivative', 'maintenance', { identifier, filename, error: errorMessage }, error instanceof Error ? error : undefined)
+        const errorMessageForResult = error instanceof Error ? error.message : String(error)
+        results.error = `Failed to delete ${identifier}/${filename}: ${errorMessageForResult}`
         results.success = false
       }
     }
 
     return NextResponse.json(results)
   } catch (error) {
-    log.error('Maintenance API error', 'maintenance', { error: error.message }, error)
-    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Maintenance API error', 'maintenance', { error: errorMessage }, error instanceof Error ? error : undefined)
+    const errorMessageForResponse = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: errorMessage },
+        { error: errorMessageForResponse },
       { status: 500 }
     )
   }

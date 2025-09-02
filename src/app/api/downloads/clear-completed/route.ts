@@ -22,7 +22,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       return createErrorResponse('Failed to clear completed downloads', 500)
     }
   } catch (error) {
-    log.error('Error clearing completed downloads', 'clear-completed-api', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error clearing completed downloads', 'clear-completed-api', { error: errorMessage }, error instanceof Error ? error : undefined)
     return createErrorResponse('Internal server error', 500)
   }
 }

@@ -32,7 +32,8 @@ export default function StartupHandler() {
         if (error instanceof Error && error.name === 'AbortError') {
           return
         }
-        log.error('Error clearing cache on startup', 'startup-handler', { error: error.message }, error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        log.error('Error clearing cache on startup', 'startup-handler', { error: errorMessage }, error instanceof Error ? error : undefined)
       }
     }
     

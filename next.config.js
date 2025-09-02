@@ -27,8 +27,11 @@ const nextConfig = {
       allowedOrigins: getAllowedOrigins()
     },
   },
+  // Partial static export configuration
+  // Note: Full static export is disabled to maintain dynamic functionality
+  // Individual pages can be statically generated using generateStaticParams
   images: {
-    domains: ['archive.org', 'archive.org'],
+    domains: ['archive.org'],
     remotePatterns: [
       {
         protocol: 'https',

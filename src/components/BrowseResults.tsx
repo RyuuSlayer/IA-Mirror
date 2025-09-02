@@ -206,7 +206,7 @@ export default function BrowseResults({
             setError(`Unable to load search results: ${errorMessage}`)
           }
           
-          log.error('Search error', 'BrowseResults', { query, mediatype, sort, page, error: errorMessage }, error)
+          log.error('Search error', 'BrowseResults', { query, mediatype, sort, page, error: errorMessage }, error instanceof Error ? error : undefined)
         }
       } finally {
         // Only update loading state if this is still the current request
@@ -295,7 +295,8 @@ export default function BrowseResults({
             : item
         ))
       } catch (ignoreError) {
-        log.error('Failed to auto-ignore downloaded item', 'BrowseResults', { identifier, error: ignoreError.message }, ignoreError)
+        const errorMessage = ignoreError instanceof Error ? ignoreError.message : 'Unknown error'
+        log.error('Failed to auto-ignore downloaded item', 'BrowseResults', { identifier, error: errorMessage }, ignoreError instanceof Error ? ignoreError : undefined)
       }
 
       // Keep the downloading state for a short while to show feedback
@@ -308,7 +309,7 @@ export default function BrowseResults({
       }, 2000)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Download failed'
-      log.error('Download error', 'BrowseResults', { identifier, title, error: error.message }, error)
+      log.error('Download error', 'BrowseResults', { identifier, title, error: errorMessage }, error instanceof Error ? error : undefined)
       setError(`Failed to download "${title}": ${errorMessage}`)
       setDownloadingItems(prev => {
         const next = new Set(prev)
@@ -357,7 +358,8 @@ export default function BrowseResults({
         })
       }, 1000)
     } catch (error) {
-      log.error('Ignore error', 'BrowseResults', { identifier, isIgnored, error: error.message }, error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      log.error('Ignore error', 'BrowseResults', { identifier, isIgnored, error: errorMessage }, error instanceof Error ? error : undefined)
       setIgnoringItems(prev => {
         const next = new Set(prev)
         next.delete(identifier)

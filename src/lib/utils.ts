@@ -103,7 +103,7 @@ export function safeJsonParse(content: string, filePath?: string): any | null {
     return parsed;
   } catch (parseError) {
     if (filePath) {
-      logger.warn('JSON parse error in file', 'Utils', { filePath, error: parseError.message });
+      logger.warn('JSON parse error in file', 'Utils', { filePath, error: parseError instanceof Error ? parseError.message : String(parseError) });
     }
     return null;
   }
@@ -129,7 +129,7 @@ export function readJsonFile(filePath: string): any {
     const content = fs.readFileSync(filePath, 'utf8');
     return safeJsonParse(content, filePath);
   } catch (error) {
-    logger.error('Error reading file', 'Utils', { filePath, error: error.message }, error);
+    logger.error('Error reading file', 'Utils', { filePath, error: error instanceof Error ? error.message : String(error) }, error instanceof Error ? error : undefined);
     return null;
   }
 }

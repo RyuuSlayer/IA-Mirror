@@ -140,8 +140,9 @@ export async function GET(
     // Convert Node.js ReadStream to Web ReadableStream
     const readableStream = new ReadableStream({
       start(controller) {
-        stream.on('data', (chunk) => {
-          controller.enqueue(new Uint8Array(chunk))
+        stream.on('data', (chunk: string | Buffer) => {
+          const buffer = typeof chunk === 'string' ? Buffer.from(chunk) : chunk
+          controller.enqueue(new Uint8Array(buffer))
         })
         
         stream.on('end', () => {

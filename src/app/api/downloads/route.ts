@@ -48,7 +48,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
     return NextResponse.json(newDownload)
   } catch (error) {
-    log.error('Error adding download', 'downloads-api', { error: error.message }, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Error adding download', 'downloads-api', { error: errorMessage }, error instanceof Error ? error : undefined)
     return createErrorResponse('Internal server error', 500)
   }
 }

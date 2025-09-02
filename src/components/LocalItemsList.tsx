@@ -401,6 +401,7 @@ export default function LocalItemsList() {
             query={currentSearch}
             mediatype={currentMediaType}
             sort={currentSort}
+            hideDownloaded={false}
           />
         </div>
       )}

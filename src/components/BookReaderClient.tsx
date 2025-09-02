@@ -129,7 +129,8 @@ export default function BookReaderClient({ identifier, fileName, title }: BookRe
         }
         
       } catch (error) {
-        log.error('Failed to initialize BookReader', 'bookreader', { identifier, fileName, error: error.message }, error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        log.error('Failed to initialize BookReader', 'bookreader', { identifier, fileName, error: errorMessage }, error instanceof Error ? error : undefined)
         
         const fileExtension = fileName.split('.').pop()
         
@@ -165,7 +166,8 @@ export default function BookReaderClient({ identifier, fileName, title }: BookRe
         try {
           bookReaderRef.current.destroy()
         } catch (error) {
-          log.warn('Error destroying BookReader', 'bookreader', { identifier, fileName, error: error.message }, error)
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          log.warn('Error destroying BookReader', 'bookreader', { identifier, fileName, error: errorMessage })
         }
       }
       bookReaderRef.current = null
