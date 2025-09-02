@@ -7,6 +7,7 @@ import { readJsonFile } from '@/lib/utils'
 import { retryFetch, RETRY_CONFIGS } from '@/lib/retry'
 import { queueDownloadDirect } from '@/lib/downloads'
 import { getMetadataCache, generateMetadataCacheKey } from '@/lib/cache'
+import { log } from '@/lib/logger'
 import type { MaintenanceRequest, MaintenanceResult, MaintenanceIssue, MetadataFile, ApiResponse } from '@/types/api'
 
 const MEDIA_TYPE_FOLDERS = {
@@ -57,7 +58,7 @@ function findFileInDirectory(directory: string, originalFilename: string): strin
   // Try both original filename and sanitized version
   const sanitizedFilename = sanitizeFilename(baseFilename)
   
-  console.log('Looking for file:', { 
+  log.debug('Looking for file', 'maintenance', { 
     directory, 
     originalFilename, 
     subDirs,
@@ -69,12 +70,12 @@ function findFileInDirectory(directory: string, originalFilename: string): strin
   try {
     // Check if the subdirectory exists
     if (!fs.existsSync(targetDir)) {
-      console.log('Target directory does not exist:', targetDir)
+      log.warn('Target directory does not exist', 'maintenance', { targetDir })
       return null
     }
 
     const files = fs.readdirSync(targetDir)
-    console.log('Directory contents:', files)
+    log.debug('Directory contents', 'maintenance', { targetDir, files })
     
     // Case-insensitive search for Windows
     const foundFile = files.find(f => 
@@ -83,21 +84,21 @@ function findFileInDirectory(directory: string, originalFilename: string): strin
     )
     
     if (foundFile) {
-      console.log('Found file:', foundFile)
+      log.debug('Found file', 'maintenance', { foundFile, targetDir })
       // Return the full path relative to the item directory
       return subDirs === '.' ? foundFile : path.join(subDirs, foundFile)
     }
   } catch (error) {
-    console.error('Error reading directory:', error)
+    log.error('Error reading directory', 'maintenance', { targetDir, error: error.message }, error)
   }
 
-  console.log('File not found in either format')
+  log.debug('File not found in either format', 'maintenance', { originalFilename, sanitizedFilename })
   return null
 }
 
 async function queueDownload(identifier: string, filename: string, isDerivative: boolean = false) {
   try {
-    console.log('Attempting to queue download:', { identifier, filename, isDerivative })
+    log.info('Attempting to queue download', 'maintenance', { identifier, filename, isDerivative })
     const displayName = path.basename(filename)
     
     // Get media type from identifier
@@ -112,14 +113,14 @@ async function queueDownload(identifier: string, filename: string, isDerivative:
     )
     
     if (success) {
-      console.log('Download queued successfully')
+      log.info('Download queued successfully', 'maintenance', { identifier, filename })
       return true
     } else {
-      console.error('Failed to queue download')
+      log.error('Failed to queue download', 'maintenance', { identifier, filename })
       return false
     }
   } catch (error) {
-    console.error('Error queueing download:', error)
+    log.error('Error queueing download', 'maintenance', { identifier, filename, error: error.message }, error)
     return false
   }
 }
@@ -131,7 +132,7 @@ function getItemPath(identifier: string, storagePath: string): string {
   const folderName = (MEDIA_TYPE_FOLDERS as any)[mediaType] || mediaType
   // Construct the full path
   const fullPath = path.join(storagePath, folderName, identifier)
-  console.log('Resolved path:', { mediaType, folderName, fullPath, identifier })
+  log.debug('Resolved path', 'maintenance', { mediaType, folderName, fullPath, identifier })
   return fullPath
 }
 
@@ -142,7 +143,7 @@ async function getStoragePath(): Promise<string> {
     const settings = await response.json()
     return settings.storagePath
   } catch (error) {
-    console.error('Error getting storage path:', error)
+    log.error('Error getting storage path', 'maintenance', { error: error.message }, error)
     return ''
   }
 }
@@ -197,7 +198,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
   try {
     const body: MaintenanceRequest = await request.json()
     const { action, identifier, filename } = body
-    console.log('Maintenance API called with:', { action, identifier, filename })
+    log.info('Maintenance API called', 'maintenance', { action, identifier, filename })
     
     const storagePath = await getStoragePath()
     
@@ -233,9 +234,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
               method: 'GET',
               headers: { 'force-refresh': 'true' }
             }, RETRY_CONFIGS.METADATA)
-            console.log(`Successfully refreshed metadata for ${item}`)
+            log.info('Successfully refreshed metadata', 'maintenance', { item })
           } catch (error) {
-            console.error(`Error refreshing metadata for ${item}:`, error)
+            log.error('Error refreshing metadata', 'maintenance', { item, error: error.message }, error)
           }
         }
       }
@@ -292,7 +293,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
 
               // Verify file integrity (respecting skipHashCheck setting)
               const filePath = path.join(itemPath, existingFilename)
-              console.log('Verifying file:', { filePath, skipHashCheck })
+              log.debug('Verifying file', 'maintenance', { filePath, skipHashCheck })
               const verification = verifyFile(filePath, file, skipHashCheck)
               if (!verification.valid) {
                 issues.push({
@@ -307,7 +308,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
               }
             }
           } catch (error) {
-            console.error(`Error checking files for ${item}:`, error)
+            log.error('Error checking files', 'maintenance', { item, error: error.message }, error)
           }
         }
       }
@@ -366,14 +367,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
     else if (action === 'redownload-single') {
       // Queue a single file for redownload
       if (!identifier || !filename) {
-        console.error('Missing identifier or filename for redownload-single')
+        log.error('Missing identifier or filename for redownload-single', 'maintenance', { identifier, filename })
         return NextResponse.json(
           { error: 'Identifier and filename are required' },
           { status: 400 }
         )
       }
 
-      console.log('Attempting to redownload single file:', { identifier, filename })
+      log.info('Attempting to redownload single file', 'maintenance', { identifier, filename })
 
       // Special handling for metadata files
       const metadataFiles = [
@@ -385,14 +386,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
       // Check if this is a metadata file
       const isMetadataFile = metadataFiles.some(suffix => filename.endsWith(suffix))
       if (isMetadataFile) {
-        console.log('Handling metadata file download:', filename)
+        log.info('Handling metadata file download', 'maintenance', { filename, identifier })
         const success = await queueDownload(identifier, filename, false)
         if (success) {
-          console.log('Successfully queued metadata file for redownload:', { identifier, filename })
+          log.info('Successfully queued metadata file for redownload', 'maintenance', { identifier, filename })
           results.message = `Queued ${identifier}/${filename} for redownload`
           results.success = true
         } else {
-          console.error('Failed to queue metadata file for redownload:', { identifier, filename })
+          log.error('Failed to queue metadata file for redownload', 'maintenance', { identifier, filename })
           results.error = `Failed to queue ${identifier}/${filename}`
           results.success = false
         }
@@ -401,29 +402,29 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
 
       // For non-metadata files, proceed with normal metadata check
       const baseUrl = getBaseUrl()
-      console.log('Fetching metadata from:', `${baseUrl}/api/metadata/${identifier}`)
+      log.debug('Fetching metadata', 'maintenance', { url: `${baseUrl}/api/metadata/${identifier}`, identifier })
       const metadataResponse = await retryFetch(`${baseUrl}/api/metadata/${identifier}`, {}, RETRY_CONFIGS.METADATA)
 
       const metadata = await metadataResponse.json()
-      console.log('Received metadata:', JSON.stringify(metadata, null, 2))
-      console.log('Looking for file in metadata files:', filename)
+      log.debug('Received metadata', 'maintenance', { identifier, metadataKeys: Object.keys(metadata) })
+      log.debug('Looking for file in metadata files', 'maintenance', { filename, identifier })
       
       if (!metadata.files) {
-        console.error('No files array in metadata')
+        log.error('No files array in metadata', 'maintenance', { identifier })
         return NextResponse.json(
           { error: 'No files found in metadata' },
           { status: 404 }
         )
       }
 
-      console.log('Number of files in metadata:', metadata.files.length)
+      log.debug('Number of files in metadata', 'maintenance', { count: metadata.files.length, identifier })
       const file = metadata.files.find((f: MetadataFile) => {
-        console.log('Comparing file:', f.name, 'with target:', filename)
+        log.debug('Comparing file', 'maintenance', { fileName: f.name, target: filename })
         return f.name === filename
       })
       
       if (!file) {
-        console.error('File not found in metadata')
+        log.error('File not found in metadata', 'maintenance', { filename, identifier })
         return NextResponse.json(
           { error: 'File not found in metadata' },
           { status: 404 }
@@ -432,11 +433,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
 
       const success = await queueDownload(identifier, filename, isDerivativeFile(file))
       if (success) {
-        console.log('Successfully queued file for redownload')
+        log.info('Successfully queued file for redownload', 'maintenance', { identifier, filename })
         results.message = `Queued ${identifier}/${filename} for redownload`
         results.success = true
       } else {
-        console.error('Failed to queue file for redownload')
+        log.error('Failed to queue file for redownload', 'maintenance', { identifier, filename })
         results.error = `Failed to queue ${identifier}/${filename}`
         results.success = false
       }
@@ -483,7 +484,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
               }
             }
           } catch (error) {
-            console.error(`Error checking derivatives for ${item}:`, error)
+            log.error('Error checking derivatives', 'maintenance', { item, error: error.message }, error)
           }
         }
       }
@@ -523,18 +524,18 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
             }
 
             const filePath = path.join(itemPath, existingFilename)
-            console.log('Attempting to delete:', filePath)
+            log.info('Attempting to delete derivative file', 'maintenance', { filePath, item: issue.item, file: issue.file })
             
             if (fs.existsSync(filePath)) {
               fs.unlinkSync(filePath)
               deletedFiles.push(`${issue.item}/${issue.file}`)
-              console.log('Successfully deleted:', filePath)
+              log.info('Successfully deleted derivative file', 'maintenance', { filePath, item: issue.item, file: issue.file })
             } else {
               failedFiles.push(`${issue.item}/${issue.file} (not found)`)
-              console.log('File not found:', filePath)
+              log.warn('Derivative file not found for deletion', 'maintenance', { filePath, item: issue.item, file: issue.file })
             }
           } catch (error) {
-            console.error(`Error deleting file ${issue.item}/${issue.file}:`, error)
+            log.error('Error deleting derivative file', 'maintenance', { item: issue.item, file: issue.file, error: error.message }, error)
             const errorMessage = error instanceof Error ? error.message : String(error)
             failedFiles.push(`${issue.item}/${issue.file} (${errorMessage})`)
           }
@@ -568,20 +569,20 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
         }
 
         const filePath = path.join(itemPath, existingFilename)
-        console.log('Attempting to delete:', filePath)
+        log.info('Attempting to delete single derivative', 'maintenance', { filePath, identifier, filename })
         
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath)
-          console.log('Successfully deleted:', filePath)
+          log.info('Successfully deleted single derivative', 'maintenance', { filePath, identifier, filename })
           results.message = `Deleted ${identifier}/${filename}`
           results.success = true
         } else {
-          console.log('File not found:', filePath)
+          log.warn('Single derivative file not found for deletion', 'maintenance', { filePath, identifier, filename })
           results.error = `File not found: ${identifier}/${filename}`
           results.success = false
         }
       } catch (error) {
-        console.error('Error deleting derivative:', error)
+        log.error('Error deleting single derivative', 'maintenance', { identifier, filename, error: error.message }, error)
         const errorMessage = error instanceof Error ? error.message : String(error)
         results.error = `Failed to delete ${identifier}/${filename}: ${errorMessage}`
         results.success = false
@@ -590,7 +591,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Maintenan
 
     return NextResponse.json(results)
   } catch (error) {
-    console.error('Maintenance error:', error)
+    log.error('Maintenance API error', 'maintenance', { error: error.message }, error)
     const errorMessage = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
       { error: errorMessage },

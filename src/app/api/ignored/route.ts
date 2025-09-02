@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import { readJsonFile } from '@/lib/utils'
+import { log } from '@/lib/logger'
 import type { ApiResponse } from '@/types/api'
 
 const ignoredItemsPath = path.join(process.cwd(), 'ignored-items.json')
@@ -15,7 +16,7 @@ function loadIgnoredItems(): Set<string> {
       return new Set(items)
     }
   } catch (error) {
-    console.error('Error loading ignored items:', error)
+    log.error('Error loading ignored items', 'ignored-api', { error: error.message }, error)
   }
   return new Set()
 }
@@ -26,7 +27,7 @@ function saveIgnoredItems(ignoredItems: Set<string>) {
     const items = Array.from(ignoredItems)
     fs.writeFileSync(ignoredItemsPath, JSON.stringify(items, null, 2))
   } catch (error) {
-    console.error('Error saving ignored items:', error)
+    log.error('Error saving ignored items', 'ignored-api', { error: error.message }, error)
     throw error
   }
 }
@@ -37,7 +38,7 @@ export async function GET(): Promise<NextResponse<string[] | ApiResponse>> {
     const ignoredItems = loadIgnoredItems()
     return NextResponse.json(Array.from(ignoredItems))
   } catch (error) {
-    console.error('Error getting ignored items:', error)
+    log.error('Error getting ignored items', 'ignored-api', { error: error.message }, error)
     return NextResponse.json(
       { error: 'Failed to get ignored items' },
       { status: 500 }
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       ignored: ignoredItems.has(identifier)
     })
   } catch (error) {
-    console.error('Error updating ignored items:', error)
+    log.error('Error updating ignored items', 'ignored-api', { error: error.message }, error)
     return NextResponse.json(
       { error: 'Failed to update ignored items' },
       { status: 500 }

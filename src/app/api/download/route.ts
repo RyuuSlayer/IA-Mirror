@@ -19,6 +19,7 @@ import {
   handleApiError
 } from '@/lib/errors'
 import { getMetadataCache, generateMetadataCacheKey } from '@/lib/cache'
+import { log } from '@/lib/logger'
 import type { DownloadItem, DownloadRequest, ApiResponse } from '@/types/api'
 // Map of media types to folder names
 const MEDIA_TYPE_FOLDERS = {
@@ -79,12 +80,12 @@ async function fetchMetadata(identifier: string) {
     // Try cache first
     const cachedMetadata = await metadataCache.get(cacheKey)
     if (cachedMetadata) {
-      console.log('Using cached metadata for download:', identifier)
+      log.debug('Using cached metadata for download', 'download', { identifier })
       return cachedMetadata
     }
     
     // Fetch from Internet Archive
-    console.log('Fetching metadata from IA for download:', identifier)
+    log.info('Fetching metadata from IA for download', 'download', { identifier })
     const response = await fetch(`https://archive.org/metadata/${identifier}`)
     if (!response.ok) {
       throw new Error(`Failed to fetch metadata: ${response.status}`)
@@ -97,7 +98,7 @@ async function fetchMetadata(identifier: string) {
     
     return metadata
   } catch (error) {
-    console.error('Error fetching metadata:', error)
+    log.error('Error fetching metadata', 'download', { identifier, error: error.message }, error)
     return null
   }
 }
@@ -161,7 +162,7 @@ async function startDownload(downloadItem: DownloadItem) {
   // Handle process events
   downloadProcess.stdout.on('data', (data) => {
     const output = data.toString()
-    console.log(`Download stdout: ${output}`)
+    log.debug('Download stdout', 'download', { identifier: downloadItem.identifier, output: output.trim() })
     
     // Try to parse progress from output
     const progressMatch = output.match(/Progress: (\d+)%/)
@@ -174,12 +175,12 @@ async function startDownload(downloadItem: DownloadItem) {
 
   downloadProcess.stderr.on('data', (data) => {
     const error = data.toString()
-    console.error(`Download stderr: ${error}`)
+    log.warn('Download stderr', 'download', { identifier: downloadItem.identifier, error: error.trim() })
     updateDownloadStatus(downloadItem.identifier, { error })
   })
 
     downloadProcess.on('close', (code) => {
-      console.log(`Download process exited with code ${code}`)
+      log.info('Download process exited', 'download', { identifier: downloadItem.identifier, exitCode: code, success: code === 0 })
       // Remove from active processes
       delete activeProcesses[downloadItem.identifier]
       updateDownloadStatus(downloadItem.identifier, {
@@ -195,7 +196,7 @@ async function startDownload(downloadItem: DownloadItem) {
     })
 
     downloadProcess.on('error', (error) => {
-      console.error(`Download process error: ${error.message}`)
+      log.error('Download process error', 'download', { identifier: downloadItem.identifier, error: error.message }, error)
       delete activeProcesses[downloadItem.identifier]
       updateDownloadStatus(downloadItem.identifier, {
         status: 'failed',
@@ -204,7 +205,7 @@ async function startDownload(downloadItem: DownloadItem) {
       })
     })
   } catch (error) {
-    console.error('Error starting download:', error)
+    log.error('Error starting download', 'download', { identifier: downloadItem.identifier, error: error.message }, error)
     
     // Update download status with specific error
     let errorMessage = 'Unknown error'
@@ -295,7 +296,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<DownloadIt
 
     return NextResponse.json(downloadsWithPaths)
   } catch (error) {
-    console.error('Error in GET /api/download:', error)
+    log.error('Error in GET /api/download', 'download', { error: error.message }, error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -402,7 +403,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
             process.kill()
             delete activeProcesses[download.identifier]
           } catch (error) {
-            console.error('Error killing process:', error)
+            log.error('Error killing process', 'download', { identifier: download.identifier, error: error.message }, error)
           }
         }
       }
@@ -430,7 +431,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
               process.kill()
               delete activeProcesses[download.identifier]
             } catch (error) {
-              console.error('Error killing process:', error)
+              log.error('Error killing process', 'download', { identifier: download.identifier, error: error.message }, error)
             }
           }
         }
@@ -491,7 +492,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       try {
         await startNextQueuedDownload()
       } catch (error) {
-        console.error('Error starting download:', error)
+        log.error('Error starting download', 'download', { identifier, error: error.message }, error)
         // Don't throw here - the download is queued even if it fails to start immediately
       }
       return NextResponse.json({ success: true })
@@ -499,7 +500,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
     throw new ValidationError(`Invalid action: ${action}`)
   } catch (error) {
-    console.error('Error in POST /api/download:', error)
+    log.error('Error in POST /api/download', 'download', { error: error.message }, error)
     return handleApiError(error)
   }
 }

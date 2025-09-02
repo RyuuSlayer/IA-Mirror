@@ -6,6 +6,7 @@ import {
   getMetadataCache,
   getCacheStats 
 } from '@/lib/cache'
+import { log } from '@/lib/logger'
 import type { ApiResponse } from '@/types/api'
 
 interface CacheStatsResponse {
@@ -78,7 +79,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<CacheStatsResponse
       data: stats
     })
   } catch (error) {
-    console.error('Error getting cache stats:', error)
+    log.error('Error getting cache stats', 'cache-stats-api', { error: error.message }, error)
     return NextResponse.json(
       {
         success: false,
@@ -106,7 +107,7 @@ export async function DELETE(): Promise<NextResponse<ApiResponse<{ cleared: stri
       }
     })
   } catch (error) {
-    console.error('Error clearing caches:', error)
+    log.error('Error clearing caches', 'cache-stats-api', { error: error.message }, error)
     return NextResponse.json(
       {
         success: false,

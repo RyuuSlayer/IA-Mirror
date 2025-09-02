@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import jQuery from 'jquery'
 import Link from 'next/link'
+import { log } from '@/lib/logger'
 
 // Make jQuery available globally for BookReader
 if (typeof window !== 'undefined') {
@@ -29,15 +30,14 @@ export default function BookReaderClient({ identifier, fileName, title }: BookRe
         const { default: BookReader } = await import('@internetarchive/bookreader/dist/esm/BookReader.js')
 
         const fileExtension = fileName.split('.').pop()?.toLowerCase()
-        console.log('BookReaderClient - fileName:', fileName)
-        console.log('BookReaderClient - fileExtension:', fileExtension)
+        log.debug('BookReaderClient initialization', 'bookreader', { identifier, fileName, fileExtension })
         
         // Handle different file types
         const downloadUrl = `/api/metadata/${identifier}?download=${encodeURIComponent(fileName)}`
         
         if (fileExtension === 'pdf') {
           // For PDF files, we'll use an embedded PDF viewer
-          console.log('PDF detected, creating iframe with URL:', downloadUrl)
+          log.info('PDF detected, creating iframe', 'bookreader', { identifier, fileName, downloadUrl })
           if (containerRef.current) {
             containerRef.current.innerHTML = `
               <div class="w-full h-full">
@@ -46,8 +46,8 @@ export default function BookReaderClient({ identifier, fileName, title }: BookRe
                   src="${downloadUrl}" 
                   class="w-full h-full border-0"
                   title="${title || fileName}"
-                  onload="console.log('PDF iframe loaded successfully')"
-                  onerror="console.error('PDF iframe failed to load')"
+                  onload="window.logPdfLoad && window.logPdfLoad('${fileName}')"
+                  onerror="window.logPdfError && window.logPdfError('${fileName}')"
                 ></iframe>
               </div>
             `
@@ -129,7 +129,7 @@ export default function BookReaderClient({ identifier, fileName, title }: BookRe
         }
         
       } catch (error) {
-        console.error('Failed to initialize BookReader:', error)
+        log.error('Failed to initialize BookReader', 'bookreader', { identifier, fileName, error: error.message }, error)
         
         const fileExtension = fileName.split('.').pop()
         
@@ -165,7 +165,7 @@ export default function BookReaderClient({ identifier, fileName, title }: BookRe
         try {
           bookReaderRef.current.destroy()
         } catch (error) {
-          console.warn('Error destroying BookReader:', error)
+          log.warn('Error destroying BookReader', 'bookreader', { identifier, fileName, error: error.message }, error)
         }
       }
       bookReaderRef.current = null

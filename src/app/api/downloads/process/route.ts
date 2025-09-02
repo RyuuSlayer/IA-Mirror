@@ -3,6 +3,7 @@ import { spawn } from 'child_process'
 import path from 'path'
 import { getConfig } from '@/lib/config'
 import { readDownloads, writeDownloads } from '@/lib/downloads'
+import { log } from '@/lib/logger'
 import type { DownloadItem, ApiResponse } from '@/types/api'
 
 function updateDownloadStatus(identifier: string, updates: Partial<DownloadItem>) {
@@ -35,7 +36,7 @@ async function startDownload(item: DownloadItem) {
   // Handle process events
   downloadProcess.stdout.on('data', (data) => {
     const output = data.toString()
-    console.log(`Download stdout [${item.identifier}]:`, output)
+    log.debug('Download stdout received', 'download-process', { identifier: item.identifier, output })
     
     // Try to parse progress from output
     const progressMatch = output.match(/Progress: (\d+)%/)
@@ -48,12 +49,12 @@ async function startDownload(item: DownloadItem) {
 
   downloadProcess.stderr.on('data', (data) => {
     const error = data.toString()
-    console.error(`Download stderr [${item.identifier}]:`, error)
+    log.error('Download stderr received', 'download-process', { identifier: item.identifier, error })
     updateDownloadStatus(item.identifier, { error })
   })
 
   downloadProcess.on('close', (code) => {
-    console.log(`Download process for ${item.identifier} exited with code ${code}`)
+    log.info('Download process completed', 'download-process', { identifier: item.identifier, exitCode: code, status: code === 0 ? 'success' : 'failed' })
     updateDownloadStatus(item.identifier, {
       status: code === 0 ? 'completed' : 'failed',
       error: code === 0 ? undefined : `Process exited with code ${code}`,
@@ -72,14 +73,14 @@ export async function GET(): Promise<NextResponse<ApiResponse>> {
     const queuedDownload = downloads.find(d => d.status === 'queued')
     
     if (queuedDownload) {
-      console.log('Starting download for:', queuedDownload.identifier)
+      log.info('Starting queued download', 'download-process', { identifier: queuedDownload.identifier })
       await startDownload(queuedDownload)
       return NextResponse.json({ success: true, message: 'Download started' })
     }
     
     return NextResponse.json({ success: true, message: 'No queued downloads' })
   } catch (error) {
-    console.error('Error processing download queue:', error)
+    log.error('Error processing download queue', 'download-process', { error: error.message }, error)
     return NextResponse.json(
       { error: 'Failed to process download queue' },
       { status: 500 }

@@ -9,6 +9,7 @@ import ErrorBoundary from './ErrorBoundary'
 import SkeletonLoader from './SkeletonLoader'
 import debounce from 'lodash/debounce'
 import { retryFetch, RETRY_CONFIGS } from '@/lib/retry'
+import { log } from '@/lib/logger'
 import type { LocalItem, PaginatedResponse } from '@/types/api'
 
 type Item = LocalItem
@@ -54,7 +55,7 @@ export default function LocalItemsList() {
         setItems(data.items)
         setTotal(data.total)
       } catch (error) {
-        console.error('Error fetching local items:', error)
+        log.error('Error fetching local items', 'local-items-list', { error: error instanceof Error ? error.message : String(error) }, error instanceof Error ? error : undefined)
         const errorMessage = error instanceof Error ? error.message : 'Failed to fetch local items'
         setError(`Unable to load local items: ${errorMessage}`)
       } finally {

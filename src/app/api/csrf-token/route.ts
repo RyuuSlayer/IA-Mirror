@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateCSRFToken, checkRateLimit } from '@/lib/security'
+import { log } from '@/lib/logger'
 import type { CsrfTokenResponse } from '@/types/api'
 
 export async function GET(request: NextRequest): Promise<NextResponse<CsrfTokenResponse>> {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<CsrfTokenR
     
     return response
   } catch (error) {
-    console.error('CSRF token generation error:', error)
+    log.error('CSRF token generation error', 'csrf-api', { error: error.message }, error)
     return NextResponse.json(
       { error: 'Failed to generate CSRF token' } as any,
       { status: 500 }

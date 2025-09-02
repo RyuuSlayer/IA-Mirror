@@ -15,6 +15,7 @@ import {
 } from '@/lib/security'
 import { readJsonFile } from '@/lib/utils'
 import { searchCache, generateSearchCacheKey } from '@/lib/cache'
+import { log } from '@/lib/logger'
 import type { BrowseResponse, SearchParams, ApiResponse } from '@/types/api'
 
 const log = debug('ia-mirror:api:browse')
@@ -28,7 +29,7 @@ function loadIgnoredItems(): Set<string> {
       return new Set(items)
     }
   } catch (error) {
-    console.error('Error loading ignored items:', error)
+    log.error('Error loading ignored items', 'browse-api', { error: error.message }, error)
   }
   return new Set()
 }
@@ -98,11 +99,11 @@ export async function GET(request: NextRequest): Promise<NextResponse<BrowseResp
     let searchResults = searchCache.get(cacheKey)
     
     if (!searchResults) {
-      console.log('Cache miss for search, fetching from IA:', cacheKey)
+      log.info('Cache miss for search, fetching from IA', 'browse-api', { cacheKey, query, mediatype, sort, page, size })
       searchResults = await searchItems(searchOptions)
       searchCache.set(cacheKey, searchResults)
     } else {
-      console.log('Cache hit for search:', cacheKey)
+      log.debug('Cache hit for search', 'browse-api', { cacheKey, query, mediatype, sort, page, size })
     }
 
     // Get local items to check which are downloaded
@@ -135,7 +136,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<BrowseResp
     return NextResponse.json(response)
 
   } catch (error) {
-    console.error('Browse API error:', error)
+    log.error('Browse API error', 'browse-api', { error: error.message }, error)
     return NextResponse.json(
       { error: 'Failed to fetch items' },
       { status: 500 }

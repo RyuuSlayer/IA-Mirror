@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import ErrorBoundary from '@/components/ErrorBoundary'
+import LogViewer from '@/components/LogViewer'
+import { log } from '@/lib/logger'
 
 // CSRF token utility
 const fetchCSRFToken = async (): Promise<string> => {
@@ -18,6 +20,7 @@ interface Settings {
   maxConcurrentDownloads: number
   skipHashCheck: boolean
   baseUrl: string
+  enableFileLogging: boolean
 }
 
 interface MaintenanceIssue {
@@ -62,7 +65,8 @@ const DEFAULT_SETTINGS: Settings = {
   storagePath: '',
   maxConcurrentDownloads: 3,
   skipHashCheck: false,
-  baseUrl: 'http://localhost:3000'
+  baseUrl: 'http://localhost:3000',
+  enableFileLogging: false
 }
 
 export default function SettingsPage() {
@@ -100,7 +104,7 @@ export default function SettingsPage() {
         setHealthError('Failed to fetch health status')
       }
     } catch (error) {
-      console.error('Error fetching health status:', error)
+      log.error('Error fetching health status', 'settings-page', { error: error.message }, error)
       setHealthError('Failed to fetch health status')
     } finally {
       setIsHealthLoading(false)
@@ -134,11 +138,12 @@ export default function SettingsPage() {
           storagePath: data.storagePath || '',
           maxConcurrentDownloads: data.maxConcurrentDownloads || 3,
           skipHashCheck: data.skipHashCheck || false,
-          baseUrl: data.baseUrl || 'http://localhost:3000'
+          baseUrl: data.baseUrl || 'http://localhost:3000',
+          enableFileLogging: data.enableFileLogging || false
         })
       }
     } catch (error) {
-      console.error('Error fetching settings:', error)
+      log.error('Error fetching settings', 'settings-page', { error: error.message }, error)
       setError('Failed to load settings')
     } finally {
       setIsLoading(false)
@@ -170,7 +175,7 @@ export default function SettingsPage() {
         setError(data.error || 'Failed to save settings')
       }
     } catch (error) {
-      console.error('Error saving settings:', error)
+      log.error('Error saving settings', 'settings-page', { error: error.message }, error)
       setError('Failed to save settings')
     }
   }
@@ -263,7 +268,7 @@ export default function SettingsPage() {
         setError(errorData.error || 'Maintenance operation failed')
       }
     } catch (error) {
-      console.error('Error during maintenance:', error)
+      log.error('Error during maintenance', 'settings-page', { error: error.message }, error)
       setError('Maintenance operation failed')
     } finally {
       setIsMaintenanceRunning(false)
@@ -352,6 +357,21 @@ export default function SettingsPage() {
                     <label htmlFor="skipHashCheck" className="ml-2 block text-sm text-gray-700">
                       Skip Hash Check
                     </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="enableFileLogging"
+                      checked={settings.enableFileLogging}
+                      onChange={(e) => setSettings({ ...settings, enableFileLogging: e.target.checked })}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="enableFileLogging" className="ml-2 block text-sm text-gray-700">
+                      Enable File Logging
+                    </label>
+                    <p className="ml-2 text-sm text-gray-500">
+                      (When disabled, logs are only kept in memory)
+                    </p>
                   </div>
                 </div>
               </div>
@@ -580,6 +600,11 @@ export default function SettingsPage() {
                 <p>Click "Check Health" to view system status</p>
               </div>
             )}
+          </section>
+
+          {/* Logs Section */}
+          <section className="bg-white rounded-lg shadow-sm p-6">
+            <LogViewer enableFileLogging={settings.enableFileLogging} />
           </section>
         </div>
         </main>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readDownloads, writeDownloads } from '@/lib/downloads'
 import { createErrorResponse } from '@/lib/utils'
+import { log } from '@/lib/logger'
 import type { DownloadItem, ApiResponse } from '@/types/api'
 
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse>> {
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       return createErrorResponse('Failed to clear completed downloads', 500)
     }
   } catch (error) {
-    console.error('Error clearing completed downloads:', error)
+    log.error('Error clearing completed downloads', 'clear-completed-api', { error: error.message }, error)
     return createErrorResponse('Internal server error', 500)
   }
 }

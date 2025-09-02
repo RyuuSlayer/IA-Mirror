@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { readJsonFile } from './utils'
 import { writeJsonFileAtomic } from './streamingJson'
+import logger from './logger'
 
 const CONFIG_FILE = path.join(process.cwd(), 'config.json')
 
@@ -15,7 +16,8 @@ function ensureConfigExists(): void {
       storagePath: path.join(process.cwd(), 'cache'),
       maxConcurrentDownloads: 3,
       skipHashCheck: false,
-      baseUrl: 'http://localhost:3000'
+      baseUrl: 'http://localhost:3000',
+      enableFileLogging: false
     }
     
     let tempFile: string | null = null
@@ -32,9 +34,9 @@ function ensureConfigExists(): void {
         throw new Error('Failed to write default config')
       }
       
-      console.log('Created default config.json with sensible defaults')
+      logger.info('Created default config.json with sensible defaults', 'Config')
     } catch (error) {
-      console.warn('Could not create default config.json:', error)
+      logger.warn('Could not create default config.json', 'Config', { error: error.message })
     }
   }
 }
@@ -51,6 +53,7 @@ export interface Settings {
   maxConcurrentDownloads: number
   skipHashCheck: boolean
   baseUrl: string
+  enableFileLogging: boolean
 }
 
 export function readSettings(): Settings {
@@ -80,7 +83,7 @@ export function writeSettings(settings: Settings): boolean {
   try {
     return writeJsonFileAtomic(CONFIG_FILE, settings)
   } catch (error) {
-    console.error('Error writing settings:', error)
+    logger.error('Error writing settings', 'Config', { error: error.message }, error)
     return false
   }
 }
@@ -96,7 +99,7 @@ export async function getConfig(): Promise<Config> {
     try {
       fs.mkdirSync(cacheDir, { recursive: true })
     } catch (error) {
-      console.error('Failed to create cache directory:', error)
+      logger.error('Failed to create cache directory', 'Config', { cacheDir, error: error.message }, error)
       // If we can't create the configured directory, fall back to default
       return {
         cacheDir: path.join(process.cwd(), 'cache'),

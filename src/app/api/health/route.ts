@@ -5,6 +5,7 @@ import { getConfig } from '@/lib/config'
 import { readDownloads } from '@/lib/downloads'
 import { retryFetch, RETRY_CONFIGS } from '@/lib/retry'
 import { healthCache } from '@/lib/cache'
+import { log } from '@/lib/logger'
 import type { HealthCheckResponse, HealthCheckService } from '@/types/api'
 
 const startTime = Date.now()
@@ -220,11 +221,11 @@ export async function GET(request: NextRequest): Promise<NextResponse<HealthChec
   const cachedHealth = healthCache.get(cacheKey)
   
   if (cachedHealth) {
-    console.log('Using cached health status')
+    log.debug('Using cached health status', 'health-api')
     return NextResponse.json(cachedHealth)
   }
   
-  console.log('Generating fresh health status')
+  log.debug('Generating fresh health status', 'health-api')
   const timestamp = new Date().toISOString()
   const uptime = Date.now() - startTime
   

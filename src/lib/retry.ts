@@ -2,6 +2,8 @@
  * Retry utility for network requests with exponential backoff
  */
 
+import { log } from '@/lib/logger'
+
 export interface RetryOptions {
   maxRetries?: number
   initialDelay?: number
@@ -65,7 +67,7 @@ export async function retryWithBackoff<T>(
         opts.maxDelay
       )
       
-      console.warn(`Request failed (attempt ${attempt + 1}/${opts.maxRetries + 1}), retrying in ${delay}ms:`, error)
+      log.warn(`Request failed (attempt ${attempt + 1}/${opts.maxRetries + 1}), retrying in ${delay}ms`, 'retry', { attempt: attempt + 1, maxRetries: opts.maxRetries + 1, delay, error: error.message }, error)
       
       // Wait before retrying
       await new Promise(resolve => setTimeout(resolve, delay))

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createErrorResponse } from '@/lib/utils'
 import { getBaseUrl } from '@/lib/config'
 import { readDownloads, writeDownloads } from '@/lib/downloads'
+import { log } from '@/lib/logger'
 import type { DownloadItem } from '@/types/api'
 import type { DownloadRequest, ApiResponse } from '@/types/api'
 
@@ -43,11 +44,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
     // Trigger queue processing with absolute URL
     fetch(`${baseUrl}/api/downloads/process`, { method: 'GET' })
-      .catch(error => console.error('Error triggering queue processing:', error))
+      .catch(error => log.error('Error triggering queue processing', 'downloads-api', { error: error.message }, error))
 
     return NextResponse.json(newDownload)
   } catch (error) {
-    console.error('Error adding download:', error)
+    log.error('Error adding download', 'downloads-api', { error: error.message }, error)
     return createErrorResponse('Internal server error', 500)
   }
 }

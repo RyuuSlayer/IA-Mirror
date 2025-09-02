@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { log } from '@/lib/logger'
 
 export default function StartupHandler() {
   useEffect(() => {
@@ -12,12 +13,12 @@ export default function StartupHandler() {
         })
         
         if (response.ok) {
-          console.log('Cache cleared on startup')
+          log.info('Cache cleared on startup', 'startup-handler')
         } else {
-          console.warn('Failed to clear cache on startup')
+          log.warn('Failed to clear cache on startup', 'startup-handler')
         }
       } catch (error) {
-        console.error('Error clearing cache on startup:', error)
+        log.error('Error clearing cache on startup', 'startup-handler', { error: error.message }, error)
       }
     }
     

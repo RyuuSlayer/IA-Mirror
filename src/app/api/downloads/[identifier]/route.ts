@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readDownloads, writeDownloads } from '@/lib/downloads'
+import { log } from '@/lib/logger'
 import type { DownloadItem, ApiResponse } from '@/types/api'
 
 export async function DELETE(
@@ -26,7 +27,7 @@ export async function DELETE(
       try {
         process.kill(download.pid)
       } catch (error) {
-        console.error('Error killing process:', error)
+        log.error('Error killing download process', 'downloads-api', { identifier, pid: download.pid, error: error.message }, error)
       }
     }
 
@@ -36,7 +37,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error deleting download:', error)
+    log.error('Error deleting download', 'downloads-api', { identifier, error: error.message }, error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -73,7 +74,7 @@ export async function PATCH(
 
     return NextResponse.json(downloads[downloadIndex])
   } catch (error) {
-    console.error('Error updating download:', error)
+    log.error('Error updating download', 'downloads-api', { identifier, error: error.message }, error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

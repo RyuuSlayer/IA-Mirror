@@ -10,6 +10,7 @@ import {
   checkRateLimit,
   sanitizeInput
 } from '@/lib/security'
+import { log } from '@/lib/logger'
 import type { ApiResponse } from '@/types/api'
 
 const CONFIG_FILE = path.join(process.cwd(), 'config.json')
@@ -30,7 +31,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<Settings |
       storagePath: settings.storagePath || '',
       maxConcurrentDownloads: settings.maxConcurrentDownloads || 3,
       skipHashCheck: settings.skipHashCheck || false,
-      baseUrl: settings.baseUrl || 'http://localhost:3000'
+      baseUrl: settings.baseUrl || 'http://localhost:3000',
+      enableFileLogging: settings.enableFileLogging || false
     })
   } catch (error) {
     return NextResponse.json(
@@ -52,9 +54,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     }
 
     const body: Partial<Settings> = await request.json()
-    const { storagePath: rawStoragePath, maxConcurrentDownloads: rawMaxDownloads, skipHashCheck, baseUrl } = body
+    const { storagePath: rawStoragePath, maxConcurrentDownloads: rawMaxDownloads, skipHashCheck, baseUrl, enableFileLogging } = body
     
-    console.log('Settings API received:', { rawStoragePath, rawMaxDownloads, skipHashCheck })
+    log.info('Settings API received', 'settings-api', { rawStoragePath, rawMaxDownloads, skipHashCheck })
     
     // Validate and sanitize inputs
     if (rawStoragePath === undefined) {
@@ -95,12 +97,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       storagePath,
       maxConcurrentDownloads: maxConcurrentDownloads || 3,
       skipHashCheck: skipHashCheck !== undefined ? skipHashCheck : false,
-      baseUrl: baseUrl || 'http://localhost:3000'
+      baseUrl: baseUrl || 'http://localhost:3000',
+      enableFileLogging: enableFileLogging !== undefined ? enableFileLogging : false
     }
-    console.log('Settings object to save:', settings)
+    log.debug('Settings object to save', 'settings-api', { settings })
 
     const success = writeSettings(settings)
-    console.log('Write settings result:', success)
+    log.debug('Write settings result', 'settings-api', { success })
 
     if (!success) {
       return createErrorResponse('Failed to save settings', 500)
@@ -108,7 +111,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
     return createSuccessResponse()
   } catch (error) {
-    console.error('Error saving settings:', error)
+    log.error('Error saving settings', 'settings-api', { error: error.message }, error)
     return createErrorResponse('Failed to save settings', 500)
   }
 }

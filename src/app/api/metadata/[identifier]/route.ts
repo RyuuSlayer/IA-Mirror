@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
-import debug from 'debug'
 import { getConfig } from '@/lib/config'
 import { 
   sanitizeFilePath, 
@@ -11,9 +10,8 @@ import {
   getCSRFTokenFromRequest
 } from '@/lib/security'
 import { getMetadataCache, generateMetadataCacheKey } from '@/lib/cache'
+import { log } from '@/lib/logger'
 import type { ItemMetadata, RawMetadata, ApiResponse } from '@/types/api'
-
-const log = debug('ia-mirror:metadata')
 
 // Map of Internet Archive media types to folder names
 const MEDIA_TYPE_FOLDERS: { [key: string]: string } = {
@@ -50,7 +48,7 @@ export async function GET(
     const { identifier } = params
     
     if (!identifier || !validateIdentifier(identifier)) {
-      log('Invalid or missing identifier provided:', identifier)
+      log.warn('Invalid or missing identifier provided', 'metadata', { identifier })
       return NextResponse.json(
         { error: 'Valid identifier is required' },
         { status: 400 }
@@ -61,14 +59,14 @@ export async function GET(
     const config = await getConfig()
     const STORAGE_DIR = config.cacheDir
     
-    log('Fetching metadata for:', identifier)
-    log('Storage directory:', STORAGE_DIR)
+    log.info('Fetching metadata', 'metadata', { identifier })
+    log.debug('Storage directory', 'metadata', { storageDir: STORAGE_DIR })
 
     // Find the item path
     let itemPath = null
     for (const folder of Object.values(MEDIA_TYPE_FOLDERS)) {
       const potentialPath = path.join(STORAGE_DIR, folder, identifier)
-      log('Checking path:', potentialPath)
+      log.debug('Checking path', 'metadata', { potentialPath, folder })
       if (fs.existsSync(potentialPath)) {
         itemPath = potentialPath
         break
@@ -76,7 +74,7 @@ export async function GET(
     }
 
     if (!itemPath) {
-      log('Item not found locally')
+      log.warn('Item not found locally', 'metadata', { identifier })
       return NextResponse.json(
         { error: 'Item not found' },
         { status: 404 }
@@ -91,7 +89,7 @@ export async function GET(
       try {
         // Validate file name
         if (!validateFileName(download)) {
-          log('Invalid file name:', download)
+          log.warn('Invalid file name', 'metadata', { download, identifier })
           return NextResponse.json(
             { error: 'Invalid file name' },
             { status: 400 }
@@ -101,17 +99,17 @@ export async function GET(
         // Sanitize file path to prevent directory traversal
         const downloadPath = sanitizeFilePath(download, itemPath)
         if (!downloadPath) {
-          log('Path traversal attempt detected:', download)
+          log.warn('Path traversal attempt detected', 'metadata', { download, identifier })
           return NextResponse.json(
             { error: 'Invalid file path' },
             { status: 400 }
           )
         }
         
-        log('Attempting to read file:', downloadPath)
+        log.debug('Attempting to read file', 'metadata', { downloadPath, identifier })
         
         if (!fs.existsSync(downloadPath)) {
-          log('File not found:', downloadPath)
+          log.warn('File not found', 'metadata', { downloadPath, identifier })
           return NextResponse.json(
             { error: 'File not found' },
             { status: 404 }
@@ -136,7 +134,7 @@ export async function GET(
           headers,
         })
       } catch (err) {
-        console.error('Error reading file:', err)
+        log.error('Error reading file', 'metadata', { downloadPath, identifier, error: err.message }, err)
         return NextResponse.json(
           { error: 'Failed to read file' },
           { status: 500 }
@@ -148,9 +146,9 @@ export async function GET(
     const metadataPath = path.join(itemPath, 'metadata.json')
     let metadata: RawMetadata | Record<string, any> = {}
 
-    console.log('Checking metadata for:', identifier)
-    console.log('Metadata path:', metadataPath)
-    console.log('Force refresh:', request.headers.get('force-refresh'))
+    log.debug('Checking metadata for identifier', 'metadata-api', { identifier })
+    log.debug('Metadata path', 'metadata', { metadataPath, identifier })
+    log.debug('Force refresh', 'metadata', { forceRefresh: request.headers.get('force-refresh'), identifier })
 
     const cacheKey = generateMetadataCacheKey(identifier)
     const metadataCache = getMetadataCache()
@@ -160,7 +158,7 @@ export async function GET(
     if (!forceRefresh) {
       const cachedMetadata = await metadataCache.get(cacheKey)
       if (cachedMetadata) {
-        console.log('Using cached metadata for:', identifier)
+        log.debug('Using cached metadata', 'metadata', { identifier })
         metadata = cachedMetadata
       }
     }
@@ -168,21 +166,22 @@ export async function GET(
     // If no cached data or force refresh, try to fetch fresh metadata from Internet Archive
     if (Object.keys(metadata).length === 0 || forceRefresh) {
       try {
-        console.log('Fetching fresh metadata from Internet Archive')
+        log.info('Fetching fresh metadata from Internet Archive', 'metadata', { identifier })
         const iaResponse = await fetch(`https://archive.org/metadata/${identifier}`)
         if (iaResponse.ok) {
           metadata = await iaResponse.json()
-          console.log('Got fresh metadata:', JSON.stringify(metadata, null, 2))
+          log.debug('Got fresh metadata', 'metadata', { identifier, metadataKeys: Object.keys(metadata) })
           
           // Save to both cache and local file
           await metadataCache.set(cacheKey, metadata)
           fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2))
-          console.log('Saved fresh metadata to cache and file:', metadataPath)
+          log.debug('Saved fresh metadata to cache and file', 'metadata', { metadataPath, identifier })
         } else {
-          console.error('Failed to fetch fresh metadata:', await iaResponse.text())
+          const errorText = await iaResponse.text()
+          log.error('Failed to fetch fresh metadata', 'metadata', { identifier, status: iaResponse.status, error: errorText })
         }
       } catch (error) {
-        console.error('Error fetching fresh metadata:', error)
+        log.error('Error fetching fresh metadata', 'metadata', { identifier, error: error.message }, error)
         // Fall back to local metadata if fetch fails
       }
     }
@@ -190,15 +189,15 @@ export async function GET(
     // If still no metadata, try local file
     if (Object.keys(metadata).length === 0 && fs.existsSync(metadataPath)) {
       try {
-        console.log('Reading local metadata from:', metadataPath)
+        log.debug('Reading local metadata', 'metadata', { metadataPath, identifier })
         const rawMetadata = fs.readFileSync(metadataPath, 'utf8')
         metadata = JSON.parse(rawMetadata)
-        console.log('Got local metadata:', JSON.stringify(metadata, null, 2))
+        log.debug('Got local metadata', 'metadata', { identifier, metadataKeys: Object.keys(metadata) })
         
         // Cache the local metadata for future requests
         await metadataCache.set(cacheKey, metadata)
       } catch (error) {
-        console.error('Error reading local metadata:', error)
+        log.error('Error reading local metadata', 'metadata', { metadataPath, identifier, error: error.message }, error)
         return NextResponse.json(
           { error: 'Failed to read metadata' },
           { status: 500 }
@@ -207,7 +206,7 @@ export async function GET(
     }
 
     if (!metadata || Object.keys(metadata).length === 0) {
-      console.error('No metadata found for:', identifier)
+      log.error('No metadata found', 'metadata', { identifier })
       return NextResponse.json(
         { error: 'No metadata found' },
         { status: 404 }
@@ -216,18 +215,18 @@ export async function GET(
 
     // Add local file information
     if (metadata.files) {
-      console.log('Processing files in metadata')
+      log.debug('Processing files in metadata', 'metadata', { identifier, fileCount: metadata.files.length })
       metadata.files = metadata.files.map((file: any) => {
         const filePath = path.join(itemPath, file.name)
         const exists = fs.existsSync(filePath)
-        console.log('Checking file:', file.name, 'exists:', exists)
+        log.debug('Checking file', 'metadata', { filename: file.name, exists, identifier })
         return {
           ...file,
           local: exists
         }
       })
     } else {
-      console.log('No files array in metadata')
+      log.warn('No files array in metadata', 'metadata', { identifier })
       // If no files in metadata, create array from local files
       const files = fs.readdirSync(itemPath)
         .filter(f => !f.startsWith('.') && f !== 'metadata.json')
@@ -282,7 +281,7 @@ export async function GET(
     return NextResponse.json(response)
 
   } catch (error) {
-    log('Error:', error)
+    log.error('Error in metadata API', 'metadata', { identifier, error: error.message }, error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }

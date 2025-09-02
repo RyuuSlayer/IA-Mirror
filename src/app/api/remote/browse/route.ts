@@ -5,6 +5,7 @@ import fs from 'fs'
 import path from 'path'
 import debug from 'debug'
 import { readJsonFile } from '@/lib/utils'
+import { log } from '@/lib/logger'
 import type { BrowseResponse, SearchParams, ApiResponse } from '@/types/api'
 
 const log = debug('ia-mirror:api:remote:browse')
@@ -18,7 +19,7 @@ function loadIgnoredItems(): Set<string> {
       return new Set(items)
     }
   } catch (error) {
-    console.error('Error loading ignored items:', error)
+    log.error('Error loading ignored items', 'remote-browse-api', { error: error.message }, error)
   }
   return new Set()
 }
@@ -80,7 +81,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<BrowseResp
     })
 
   } catch (error) {
-    console.error('Browse API error:', error)
+    log.error('Browse API error', 'remote-browse-api', { error: error.message }, error)
     return NextResponse.json(
       { error: 'Failed to fetch items' },
       { status: 500 }

@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { NextResponse } from 'next/server'
+import logger from './logger'
 import type { ApiResponse } from '@/types/api'
 
 export function formatDescription(text: string): string {
@@ -83,7 +84,7 @@ export function safeJsonParse(content: string, filePath?: string): any | null {
   // Validate content
   if (!content || typeof content !== 'string' || content.trim() === '') {
     if (filePath) {
-      console.warn(`Empty or invalid content in: ${filePath}`);
+      logger.warn('Empty or invalid content in file', 'Utils', { filePath });
     }
     return null;
   }
@@ -94,7 +95,7 @@ export function safeJsonParse(content: string, filePath?: string): any | null {
     // Validate parsed result
     if (!parsed || typeof parsed !== 'object') {
       if (filePath) {
-        console.warn(`Invalid JSON structure in: ${filePath}`);
+        logger.warn('Invalid JSON structure in file', 'Utils', { filePath });
       }
       return null;
     }
@@ -102,7 +103,7 @@ export function safeJsonParse(content: string, filePath?: string): any | null {
     return parsed;
   } catch (parseError) {
     if (filePath) {
-      console.warn(`JSON parse error in ${filePath}:`, parseError);
+      logger.warn('JSON parse error in file', 'Utils', { filePath, error: parseError.message });
     }
     return null;
   }
@@ -124,11 +125,11 @@ export function readJsonFile(filePath: string): any {
     }
     
     // For larger files, log a warning and still use sync (async version available separately)
-    console.warn(`Large JSON file detected (${stats.size} bytes): ${filePath}. Consider using readJsonFileStreaming for better memory efficiency.`);
+    logger.warn('Large JSON file detected', 'Utils', { filePath, size: stats.size, recommendation: 'Consider using readJsonFileStreaming for better memory efficiency' });
     const content = fs.readFileSync(filePath, 'utf8');
     return safeJsonParse(content, filePath);
   } catch (error) {
-    console.error(`Error reading file ${filePath}:`, error);
+    logger.error('Error reading file', 'Utils', { filePath, error: error.message }, error);
     return null;
   }
 }

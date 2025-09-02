@@ -4,6 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import ItemThumbnail from '@/components/ItemThumbnail'
 import { getConfig } from '@/lib/config'
+import { log } from '@/lib/logger'
 
 async function getItemMetadata(identifier: string) {
   const config = await getConfig()
@@ -18,7 +19,7 @@ async function getItemMetadata(identifier: string) {
     const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'))
     return metadata
   } catch (error) {
-    console.error('Error reading metadata:', error)
+    log.error('Error reading metadata', 'item-page', { identifier, error: error instanceof Error ? error.message : String(error) }, error instanceof Error ? error : undefined)
     return null
   }
 }

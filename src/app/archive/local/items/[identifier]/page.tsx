@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { formatDescriptionForHTML } from '@/lib/utils'
 import ItemThumbnail from '@/components/ItemThumbnail'
 import LocalItemReader from '@/components/LocalItemReader'
+import { log } from '@/lib/logger'
 
 interface ItemMetadata {
   identifier: string
@@ -241,7 +242,7 @@ export default async function ItemPage(props: Props) {
       </div>
     )
   } catch (error) {
-    console.error('Error fetching item:', error)
+    log.error('Error fetching item', 'items-page', { identifier, error: error instanceof Error ? error.message : String(error) }, error instanceof Error ? error : undefined)
     throw error
   }
 }

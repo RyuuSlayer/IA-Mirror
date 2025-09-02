@@ -44,3 +44,4 @@ ignored-items.json
 config.json
 config.json.backup
 .cache
+logs/

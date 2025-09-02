@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { log } from '@/lib/logger'
 
 interface ItemCardProps {
   item: {
@@ -59,7 +60,7 @@ export default function ItemCard({ item }: ItemCardProps) {
       blobUrlRef.current = null
       linkElementRef.current = null
     } catch (error) {
-      console.error('Download error:', error)
+      log.error('Download error', 'item-card', { identifier: item.identifier, error: error instanceof Error ? error.message : String(error) }, error instanceof Error ? error : undefined)
       setError(error instanceof Error ? error.message : 'Download failed')
     } finally {
       setDownloading(false)

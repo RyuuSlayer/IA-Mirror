@@ -6,6 +6,7 @@ import Link from 'next/link'
 import ErrorBoundary from './ErrorBoundary'
 import SkeletonLoader from './SkeletonLoader'
 import { retryFetch, RETRY_CONFIGS } from '@/lib/retry'
+import { log } from '@/lib/logger'
 
 // CSRF token utility
 const fetchCSRFToken = async (): Promise<string> => {
@@ -118,7 +119,7 @@ export default function BrowseResults({
         }
         const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
         setError(`Unable to load search results: ${errorMessage}`)
-        console.error('Search error:', error)
+        log.error('Search error', 'BrowseResults', { query, mediatype, sort, page, error: error.message }, error)
       } finally {
         if (!abortController.signal.aborted) {
           setLoading(false)
@@ -205,7 +206,7 @@ export default function BrowseResults({
             : item
         ))
       } catch (ignoreError) {
-        console.error('Failed to auto-ignore downloaded item:', ignoreError)
+        log.error('Failed to auto-ignore downloaded item', 'BrowseResults', { identifier, error: ignoreError.message }, ignoreError)
       }
 
       // Keep the downloading state for a short while to show feedback
@@ -218,7 +219,7 @@ export default function BrowseResults({
       }, 2000)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Download failed'
-      console.error('Download error:', error)
+      log.error('Download error', 'BrowseResults', { identifier, title, error: error.message }, error)
       setError(`Failed to download "${title}": ${errorMessage}`)
       setDownloadingItems(prev => {
         const next = new Set(prev)
@@ -267,7 +268,7 @@ export default function BrowseResults({
         })
       }, 1000)
     } catch (error) {
-      console.error('Ignore error:', error)
+      log.error('Ignore error', 'BrowseResults', { identifier, isIgnored, error: error.message }, error)
       setIgnoringItems(prev => {
         const next = new Set(prev)
         next.delete(identifier)

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { retryFetch, RETRY_CONFIGS } from '@/lib/retry'
 import ErrorBoundary from '@/components/ErrorBoundary'
+import { log } from '@/lib/logger'
 
 // CSRF token utility
 const fetchCSRFToken = async (): Promise<string> => {
@@ -76,7 +77,7 @@ export default function DownloadsPage() {
       setError(null)
       setLoading(false)
     } catch (error) {
-      console.error('Error fetching downloads:', error)
+      log.error('Error fetching downloads', 'downloads', { error: error.message }, error)
       const userFriendlyMessage = getUserFriendlyError(error)
       setError(`Unable to load downloads: ${userFriendlyMessage}`)
       setLoading(false)
@@ -107,7 +108,7 @@ export default function DownloadsPage() {
       
       showNotification('success', 'Download cancelled successfully')
     } catch (error) {
-      console.error('Error cancelling download:', error)
+      log.error('Error cancelling download', 'downloads', { identifier, error: error.message }, error)
       const userFriendlyMessage = getUserFriendlyError(error)
       showNotification('error', `Failed to cancel download: ${userFriendlyMessage}`)
     }
@@ -134,7 +135,7 @@ export default function DownloadsPage() {
       // Wait for API completion before refreshing
       await fetchDownloads()
     } catch (error) {
-      console.error('Error clearing downloads:', error)
+      log.error('Error clearing downloads', 'downloads', { error: error.message }, error)
       const userFriendlyMessage = getUserFriendlyError(error)
       showNotification('error', `Failed to clear downloads: ${userFriendlyMessage}`)
     }
@@ -161,7 +162,7 @@ export default function DownloadsPage() {
       // Wait for API completion before refreshing
       await fetchDownloads()
     } catch (error) {
-      console.error('Error starting all downloads:', error)
+      log.error('Error starting all downloads', 'downloads', { error: error.message }, error)
       const userFriendlyMessage = getUserFriendlyError(error)
       showNotification('error', `Failed to start downloads: ${userFriendlyMessage}`)
     }
@@ -188,7 +189,7 @@ export default function DownloadsPage() {
       // Wait for API completion before refreshing
       await fetchDownloads()
     } catch (error) {
-      console.error('Error pausing all downloads:', error)
+      log.error('Error pausing all downloads', 'downloads', { error: error.message }, error)
       const userFriendlyMessage = getUserFriendlyError(error)
       showNotification('error', `Failed to pause downloads: ${userFriendlyMessage}`)
     }
@@ -215,7 +216,7 @@ export default function DownloadsPage() {
       // Wait for API completion before refreshing
       await fetchDownloads()
     } catch (error) {
-      console.error('Error cancelling all downloads:', error)
+      log.error('Error cancelling all downloads', 'downloads', { error: error.message }, error)
       const userFriendlyMessage = getUserFriendlyError(error)
       showNotification('error', `Failed to cancel downloads: ${userFriendlyMessage}`)
     }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import BookReader from './BookReader'
+import { log } from '@/lib/logger'
 
 interface LocalItemReaderProps {
   identifier: string
@@ -15,7 +16,7 @@ export default function LocalItemReader({ identifier, fileName, title, children 
 
   const handleOpenReader = (e: React.MouseEvent) => {
     e.preventDefault()
-    console.log('LocalItemReader - Opening reader for:', { identifier, fileName, title })
+    log.debug('Opening reader', 'local-item-reader', { identifier, fileName, title })
     setIsReaderOpen(true)
   }
 

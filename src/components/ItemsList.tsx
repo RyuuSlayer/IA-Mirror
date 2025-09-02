@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import SkeletonLoader from './SkeletonLoader'
+import { log } from '@/lib/logger'
 import type { SearchResult } from '@/types/api'
 
 // CSRF token utility
@@ -53,7 +54,7 @@ export default function ItemsList({ items = [] }: ItemsListProps) {
                 return { ...item, files: data.files }
               }
             } catch (error) {
-              console.error(`Error fetching files for ${item.identifier}:`, error)
+              log.error('Error fetching files for item', 'items-list', { identifier: item.identifier, error: error.message }, error)
             }
             return item
           })
@@ -62,7 +63,7 @@ export default function ItemsList({ items = [] }: ItemsListProps) {
           setItemsWithFiles(updatedItems.filter(Boolean))
         }
       } catch (error) {
-        console.error('Error fetching files:', error)
+        log.error('Error fetching files', 'items-list', { error: error.message }, error)
       } finally {
         if (mounted) {
           setIsLoading(false)
@@ -121,7 +122,7 @@ export default function ItemsList({ items = [] }: ItemsListProps) {
         )
       )
     } catch (error) {
-      console.error('Download error:', error)
+      log.error('Download error', 'items-list', { identifier, error: error.message }, error)
     } finally {
       setDownloadingItems(prev => {
         const next = new Set(prev)
